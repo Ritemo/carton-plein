@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#140b33">
+<title>Carton Plein</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icone.svg">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+__CSS__
+</style>
+</head>
+<body class="menu">
+<div id="decor"><div class="foule"></div><div class="pelouse"></div><div class="vignette"></div></div>
+<div id="app">
+  <div id="barre-haut"></div>
+  <div id="vue"></div>
+  <nav id="nav"></nav>
+</div>
+<div id="flash"><span>BUT !</span></div>
+<div class="ecran" id="ecran"></div>
+<script>
+'use strict';
+__JEU__
+__ECRANS__
+document.documentElement.style.setProperty('--feu', `url(${IMG.feu})`);
+// Appli installable seulement sur le site du jeu (GitHub Pages), pas dans l'aperçu claude.ai
+if ('serviceWorker' in navigator && /github\.io$|^localhost$/.test(location.hostname)) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

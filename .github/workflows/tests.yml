@@ -1,0 +1,20 @@
+# Vérifie le jeu à chaque envoi sur GitHub. En cas d'échec : alerte ntfy (secret NTFY_SUJET).
+name: tests
+on: [push, workflow_dispatch]
+jobs:
+  verif:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Le jeu publié correspond bien aux sources
+        run: |
+          python3 build.py
+          git diff --exit-code docs || (echo "docs/ n'est pas à jour : lancer python3 build.py puis renvoyer" && exit 1)
+      - name: Règles du jeu
+        run: node tests/regles.js
+      - name: Alerte
+        if: failure() && env.SUJET != ''
+        env: { SUJET: "${{ secrets.NTFY_SUJET }}" }
+        run: curl -s -H "Title: Carton Plein" -d "Les tests ont échoué sur ${{ github.sha }}" "https://ntfy.sh/$SUJET"

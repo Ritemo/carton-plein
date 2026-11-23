@@ -1,0 +1,11 @@
+{
+  "name": "Carton Plein",
+  "short_name": "Carton Plein",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1240",
+  "theme_color": "#1c1240",
+  "lang": "fr",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

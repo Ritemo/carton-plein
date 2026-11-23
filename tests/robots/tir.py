@@ -1,0 +1,22 @@
+from playwright.sync_api import sync_playwright
+import pathlib; F=pathlib.Path(__file__).resolve().parents[2].joinpath('docs','index.html').as_uri()
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':375,'height':740},device_scale_factor=2)
+    errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
+    pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>{effacer(); localStorage.setItem('carton-plein-tuto','1')}"); pg.reload(); pg.wait_for_timeout(500)
+    pg.click('#bNew'); pg.wait_for_timeout(300); pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
+    for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
+    pg.click('#bJouer'); pg.wait_for_timeout(300); pg.click('#mGo'); pg.wait_for_timeout(500)
+    for k in range(3):
+        pg.evaluate("()=>{S.type=null; S.phase='occasion'; S.res=calcul(S.main.filter(c=>TYPES[c.t].att===true).slice(0,2)); S.tirEtat=null; zoneAction();}"); pg.wait_for_timeout(400)
+        if k==0: pg.screenshot(path='/tmp/w_zone.png')
+        pg.click(f'[data-z="{["HG","BC","HD"][k]}"]'); pg.wait_for_timeout(500+k*170)
+        if k==0: pg.screenshot(path='/tmp/w_jauge.png')
+        pg.click('#bFrappe'); pg.wait_for_timeout(330)
+        if k==0: pg.screenshot(path='/tmp/w_anim.png')
+        pg.wait_for_timeout(2600); pg.screenshot(path=f'/tmp/w_res{k}.png')
+        print(pg.evaluate("()=>JSON.stringify(S.tir)"))
+    pg.evaluate("()=>{S.type='penalty'; S.phase='penalty'; S.tendance=null; zoneAction();}"); pg.wait_for_timeout(400); pg.screenshot(path='/tmp/w_pen.png')
+    pg.click('[data-col="G"]'); pg.wait_for_timeout(500); pg.screenshot(path='/tmp/pl_jauge.png'); pg.click('#bPlonge'); pg.wait_for_timeout(3000); pg.screenshot(path='/tmp/w_penres.png')
+    print(errs)
+    b.close()
