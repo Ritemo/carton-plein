@@ -600,8 +600,10 @@ body.direct .jauge .repere{display:none}
 @media (prefers-reduced-motion: reduce){.attente-pts::after,.attente-dir::after{animation:none;content:'...'}}
 .legende{margin:4px 0 0;opacity:.7;font-size:11.5px}
 /* ligne du joueur (D, M, A) : compte pour le bonus Collectif */
-.carte .nom .lg{display:inline-block;font-style:normal;font-size:8px;line-height:11px;min-width:11px;height:11px;border-radius:3px;margin-right:3px;background:#fff;color:#1c1240;vertical-align:1px;text-shadow:none}
-.carte .nom .lg-DEF{background:#cfd8ff}.carte .nom .lg-MIL{background:#ffe08a}.carte .nom .lg-ATT{background:#ffb3a8}
+.carte .nom .lg{display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:10px;font-weight:900;line-height:1;width:14px;height:14px;border-radius:4px;margin-right:3px;border:1.5px solid #000;color:#1c1240;vertical-align:-2px;text-shadow:none;flex-shrink:0}
+.carte .nom .lg-DEF{background:#9fd0ff}.carte .nom .lg-MIL{background:#ffd23f}.carte .nom .lg-ATT{background:#ff8f7a}
+.dc.note{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
+#stars .star{cursor:pointer}
 
 </style>
 </head>
@@ -1154,15 +1156,8 @@ function compteTypes(cartes) {
   cartes.forEach(c => { const sp = c.sp && SPECIAUX[c.t].compte; if (sp) Object.entries(sp).forEach(([t, q]) => (n[t] = (n[t] || 0) + q)); else n[c.t] = (n[c.t] || 0) + 1; });
   return n;
 }
-function calcul(cartes) {
-  const att = enAttaque();
-  const valides = cartes.filter(c => TYPES[c.t].att === att);
-  S.feinteActive = cartes.some(c => c.t === 'feinte');
-  const n = compteTypes(valides);
-  let combo;
-  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
-  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
-  const pts = valides.map((c, i) => {
+// valeur d'une carte dans ce temps fort : météo, stars, cartes adverses, lecture...
+function valeurEnMatch(c, att, n) {
     let v = c.val; const notes = [];
     const mm = METEOS[S.meteo].mod[c.t]; if (mm) { v += mm; notes.push((mm > 0 ? '+' : '') + mm + ' météo'); }
     if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) { v *= 2; notes.push('corner ×2'); }
@@ -1182,7 +1177,16 @@ function calcul(cartes) {
     if (advActif('appels') && c.t === 'marquage') { v = 0; notes.push('appels'); }
     if (advActif('lointaine') && c.t === 'gardien') { v *= 2; notes.push('frappe de loin ×2'); }
     return { c, v, notes };
-  });
+}
+function calcul(cartes) {
+  const att = enAttaque();
+  const valides = cartes.filter(c => TYPES[c.t].att === att);
+  S.feinteActive = cartes.some(c => c.t === 'feinte');
+  const n = compteTypes(valides);
+  let combo;
+  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
+  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
+  const pts = valides.map(c => valeurEnMatch(c, att, n));
   if (att && S.type === 'cf') combo = { id: 'cf', nom: 'Coup franc', mult: 3 };
   const niv = C.niveaux[combo.id] || 1;
   let mult = combo.mult + 0.5 * (niv - 1); const bonusMult = [];
@@ -1264,9 +1268,12 @@ function indice() {
       return { k, manque, deja };
     }).filter(o => o.deja && o.manque.length === 1 && sel.length + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
-  } else if (sel.length === 3 && max >= 4 && r.combo && r.combo.id !== 'muraille') {
-    const g = sel.some(c => c.t === 'gardien');
-    if (!g && main.some(c => c.t === 'gardien')) return 'Un Gardien derrière ces trois-là : Muraille';
+  } else if (r.combo && r.combo.id !== 'muraille') {
+    const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
+    const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
+    const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
+    if (r.valides.length >= 2 && besoin <= 2 && sel.length + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
+      return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
@@ -2299,7 +2306,8 @@ function bulleTuto() {
     else if (['but', 'rate', 'stoppe', 'butAdverse', 'tirRes'].includes(ph)) une('suite', '6 temps forts par match : 3 attaques, 3 défenses. Les cartes jouées sont remplacées.');
   } else {
     if (ph === 'choix' && S.adv && S.adv.length) une('adv', 'L’adversaire joue des <b>cartes</b>, affichées sous son cadre. Contourne-les, ou joue ta <b>Feinte</b> (violette) pour les annuler.');
-    else if (ph === 'choix' && att) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2).');
+    else if (ph === 'choix' && att && (!vus.coul || vus.coul === S.tf + ph)) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2). La couleur vient du <b>joueur</b>, pas du type de carte : une Frappe peut être rouge ou bleue.');
+    else if (ph === 'choix' && att) une('coll', 'Chaque joueur a une ligne, en bas de sa carte : <b>D</b> défense, <b>M</b> milieu, <b>A</b> attaque. Les trois lignes dans la même action = <b>Collectif</b> (+1 au combo).');
     else if (ph === 'choix' && S.main.some(c => estConsigne(c.t))) une('cons', 'Les cartes violettes sont des <b>Consignes</b> : 0 point, mais un effet tout de suite ou au temps fort suivant.');
   }
   return msgs.length ? `<div class="bulle-tuto">${img('dede', 'mini-ic')}<span>${msgs[0]}</span></div>` : '';
@@ -2861,6 +2869,10 @@ function afficherMatch() {
     <div id="main"></div>
   </div>`, 'match');
   Son.tension(0.02 + 0.08 * (S.tf / NB_TF));
+  document.querySelectorAll('#stars .star').forEach(el => (el.onclick = () => {
+    if (el.classList.contains('meteo')) { const M = METEOS[S.meteo], mods = Object.entries(M.mod || {}).map(([t, v]) => `${TYPES[t].nom} ${v > 0 ? '+' : ''}${v}`).join(', '); return infoBulle(M.ic, M.nom, `${M.txt}.${mods ? ` ${mods}.` : ''}`); }
+    const st = STARS.find(x => x.id === el.dataset.mot); if (st) infoBulle(IC_STAR[st.id], st.nom, st.txt);
+  }));
   const adv = $('#adv');
   const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
@@ -2935,12 +2947,14 @@ function zoneAction() {
   }
   // main
   const visible = ph === 'choix' || ph === 'calcul' || ph === 'attente';
+  // ce que la carte vaut vraiment ici (météo, stars, cartes adverses, lecture...) avant même de la choisir
   const plusDe = c => {
-    if (!att && ((LECTURE[c.t] && LECTURE[c.t].includes(S.intention)) || (c.sp && SPECIAUX[c.t].lectureTout))) return '×2';
-    if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) return '×2';
-    if (TYPES[c.t].consigne) return '';
-    const m = METEOS[S.meteo].mod[c.t]; if (m && TYPES[c.t].att === att) return (m > 0 ? '+' : '') + m;
-    return '';
+    if (TYPES[c.t].consigne || TYPES[c.t].att !== att) return '';
+    const autres = S.sel.filter(x => x.id !== c.id && TYPES[x.t].att === att), { v, notes } = valeurEnMatch(c, att, compteTypes([...autres, c]));
+    if (v === c.val) return '';
+    if (v === 0) return '0';
+    if (v === c.val * 2) return '×2';
+    return (v > c.val ? '+' : '') + (v - c.val);
   };
   mn.innerHTML = S.main.map((c, i) => {
     const sel = S.sel.some(x => x.id === c.id), utile = TYPES[c.t].att === att || !!TYPES[c.t].consigne;
@@ -2964,7 +2978,8 @@ function detailCalcul(r) {
   const pts = `<span class="dc pts">Points : ${r.pts.map(p => p.v).join(' + ')}${r.plus ? ` + ${r.plus} fiche` : ''} = ${r.somme}</span>`;
   const total = r.bonusMult.filter(b => /Supporters|Contre-pied/.test(b));
   const mult = r.bonusMult.filter(b => !/Supporters|Contre-pied/.test(b));
-  return `<div class="dc-ligne">${pts}</div><div class="dc-ligne"><span class="dc base">${r.combo.nom} ×${fmt(r.combo.mult)}</span>${mult.map(b => `<span class="dc ${/^(Trio|Carton plein)/.test(b) ? 'coul' : ''}" ${coul(b)}>${b}</span>`).join('')}<span class="dc egal">= ×${fmt(r.mult)}</span></div>`
+  const notes = r.pts.filter(p => p.notes.length).map(p => `${TYPES[p.c.t].nom} ${p.notes.join(', ')}`);
+  return `<div class="dc-ligne">${pts}</div>${notes.length ? `<div class="dc-ligne">${[...new Set(notes)].map(t => `<span class="dc note">${t}</span>`).join('')}</div>` : ''}<div class="dc-ligne"><span class="dc base">${r.combo.nom} ×${fmt(r.combo.mult)}</span>${mult.map(b => `<span class="dc ${/^(Trio|Carton plein)/.test(b) ? 'coul' : ''}" ${coul(b)}>${b}</span>`).join('')}<span class="dc egal">= ×${fmt(r.mult)}</span></div>`
     + (total.length ? `<div class="dc-ligne">${total.map(b => `<span class="dc tot">${b} sur le total</span>`).join('')}</div>` : '');
 }
 function majJauge(total) {
@@ -3300,6 +3315,7 @@ function choixOffres() {
 
 // ---------- Démarrage ----------
 accueil();
+function infoBulle(ic, titre, txt) { Son.clic(); modal(`${img(ic, 'grande-ic')}<h1 class="lil">${titre}</h1><p>${txt}</p><div class="btns"><button class="btn" id="ibOk">OK</button></div>`, () => ($('#ibOk').onclick = fermerModal)); }
 
 // =====================================================================
 // AMIS : fil d'actualité, messages, ombre, défi de la semaine, direct

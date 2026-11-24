@@ -30,6 +30,10 @@ function afficherMatch() {
     <div id="main"></div>
   </div>`, 'match');
   Son.tension(0.02 + 0.08 * (S.tf / NB_TF));
+  document.querySelectorAll('#stars .star').forEach(el => (el.onclick = () => {
+    if (el.classList.contains('meteo')) { const M = METEOS[S.meteo], mods = Object.entries(M.mod || {}).map(([t, v]) => `${TYPES[t].nom} ${v > 0 ? '+' : ''}${v}`).join(', '); return infoBulle(M.ic, M.nom, `${M.txt}.${mods ? ` ${mods}.` : ''}`); }
+    const st = STARS.find(x => x.id === el.dataset.mot); if (st) infoBulle(IC_STAR[st.id], st.nom, st.txt);
+  }));
   const adv = $('#adv');
   const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
@@ -104,12 +108,14 @@ function zoneAction() {
   }
   // main
   const visible = ph === 'choix' || ph === 'calcul' || ph === 'attente';
+  // ce que la carte vaut vraiment ici (météo, stars, cartes adverses, lecture...) avant même de la choisir
   const plusDe = c => {
-    if (!att && ((LECTURE[c.t] && LECTURE[c.t].includes(S.intention)) || (c.sp && SPECIAUX[c.t].lectureTout))) return '×2';
-    if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) return '×2';
-    if (TYPES[c.t].consigne) return '';
-    const m = METEOS[S.meteo].mod[c.t]; if (m && TYPES[c.t].att === att) return (m > 0 ? '+' : '') + m;
-    return '';
+    if (TYPES[c.t].consigne || TYPES[c.t].att !== att) return '';
+    const autres = S.sel.filter(x => x.id !== c.id && TYPES[x.t].att === att), { v, notes } = valeurEnMatch(c, att, compteTypes([...autres, c]));
+    if (v === c.val) return '';
+    if (v === 0) return '0';
+    if (v === c.val * 2) return '×2';
+    return (v > c.val ? '+' : '') + (v - c.val);
   };
   mn.innerHTML = S.main.map((c, i) => {
     const sel = S.sel.some(x => x.id === c.id), utile = TYPES[c.t].att === att || !!TYPES[c.t].consigne;
@@ -133,7 +139,8 @@ function detailCalcul(r) {
   const pts = `<span class="dc pts">Points : ${r.pts.map(p => p.v).join(' + ')}${r.plus ? ` + ${r.plus} fiche` : ''} = ${r.somme}</span>`;
   const total = r.bonusMult.filter(b => /Supporters|Contre-pied/.test(b));
   const mult = r.bonusMult.filter(b => !/Supporters|Contre-pied/.test(b));
-  return `<div class="dc-ligne">${pts}</div><div class="dc-ligne"><span class="dc base">${r.combo.nom} ×${fmt(r.combo.mult)}</span>${mult.map(b => `<span class="dc ${/^(Trio|Carton plein)/.test(b) ? 'coul' : ''}" ${coul(b)}>${b}</span>`).join('')}<span class="dc egal">= ×${fmt(r.mult)}</span></div>`
+  const notes = r.pts.filter(p => p.notes.length).map(p => `${TYPES[p.c.t].nom} ${p.notes.join(', ')}`);
+  return `<div class="dc-ligne">${pts}</div>${notes.length ? `<div class="dc-ligne">${[...new Set(notes)].map(t => `<span class="dc note">${t}</span>`).join('')}</div>` : ''}<div class="dc-ligne"><span class="dc base">${r.combo.nom} ×${fmt(r.combo.mult)}</span>${mult.map(b => `<span class="dc ${/^(Trio|Carton plein)/.test(b) ? 'coul' : ''}" ${coul(b)}>${b}</span>`).join('')}<span class="dc egal">= ×${fmt(r.mult)}</span></div>`
     + (total.length ? `<div class="dc-ligne">${total.map(b => `<span class="dc tot">${b} sur le total</span>`).join('')}</div>` : '');
 }
 function majJauge(total) {
@@ -469,3 +476,4 @@ function choixOffres() {
 
 // ---------- Démarrage ----------
 accueil();
+function infoBulle(ic, titre, txt) { Son.clic(); modal(`${img(ic, 'grande-ic')}<h1 class="lil">${titre}</h1><p>${txt}</p><div class="btns"><button class="btn" id="ibOk">OK</button></div>`, () => ($('#ibOk').onclick = fermerModal)); }

@@ -112,15 +112,8 @@ function compteTypes(cartes) {
   cartes.forEach(c => { const sp = c.sp && SPECIAUX[c.t].compte; if (sp) Object.entries(sp).forEach(([t, q]) => (n[t] = (n[t] || 0) + q)); else n[c.t] = (n[c.t] || 0) + 1; });
   return n;
 }
-function calcul(cartes) {
-  const att = enAttaque();
-  const valides = cartes.filter(c => TYPES[c.t].att === att);
-  S.feinteActive = cartes.some(c => c.t === 'feinte');
-  const n = compteTypes(valides);
-  let combo;
-  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
-  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
-  const pts = valides.map((c, i) => {
+// valeur d'une carte dans ce temps fort : météo, stars, cartes adverses, lecture...
+function valeurEnMatch(c, att, n) {
     let v = c.val; const notes = [];
     const mm = METEOS[S.meteo].mod[c.t]; if (mm) { v += mm; notes.push((mm > 0 ? '+' : '') + mm + ' météo'); }
     if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) { v *= 2; notes.push('corner ×2'); }
@@ -140,7 +133,16 @@ function calcul(cartes) {
     if (advActif('appels') && c.t === 'marquage') { v = 0; notes.push('appels'); }
     if (advActif('lointaine') && c.t === 'gardien') { v *= 2; notes.push('frappe de loin ×2'); }
     return { c, v, notes };
-  });
+}
+function calcul(cartes) {
+  const att = enAttaque();
+  const valides = cartes.filter(c => TYPES[c.t].att === att);
+  S.feinteActive = cartes.some(c => c.t === 'feinte');
+  const n = compteTypes(valides);
+  let combo;
+  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
+  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
+  const pts = valides.map(c => valeurEnMatch(c, att, n));
   if (att && S.type === 'cf') combo = { id: 'cf', nom: 'Coup franc', mult: 3 };
   const niv = C.niveaux[combo.id] || 1;
   let mult = combo.mult + 0.5 * (niv - 1); const bonusMult = [];
@@ -222,9 +224,12 @@ function indice() {
       return { k, manque, deja };
     }).filter(o => o.deja && o.manque.length === 1 && sel.length + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
-  } else if (sel.length === 3 && max >= 4 && r.combo && r.combo.id !== 'muraille') {
-    const g = sel.some(c => c.t === 'gardien');
-    if (!g && main.some(c => c.t === 'gardien')) return 'Un Gardien derrière ces trois-là : Muraille';
+  } else if (r.combo && r.combo.id !== 'muraille') {
+    const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
+    const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
+    const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
+    if (r.valides.length >= 2 && besoin <= 2 && sel.length + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
+      return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
