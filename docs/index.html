@@ -556,6 +556,49 @@ textarea.zone-txt{min-height:90px}
 .code-j{font-family:ui-monospace,monospace;letter-spacing:.12em;font-variant-numeric:tabular-nums;text-transform:uppercase}
 details.avance{margin:6px 0;font-size:12px;opacity:.85}
 details.avance summary{min-height:32px;cursor:pointer}
+/* onglet Amis et matchs entre amis */
+.onglet{position:relative;min-width:0}
+.onglet span{white-space:nowrap}
+.soc{display:flex;flex-direction:column;gap:12px}
+.soc-moi{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(0,0,0,.3);border:2px solid #000;border-radius:16px;padding:10px 12px}
+.soc-moi b{display:block;font-size:20px}
+.soc-moi small{font-size:12px;opacity:.85}
+.soc-bloc{background:linear-gradient(#2f2275,#1c1240);border:3px solid #000;border-radius:18px;padding:12px;box-shadow:0 4px 0 #000}
+.soc-t{display:flex;align-items:center;gap:6px;font-size:17px;margin-bottom:8px}
+.soc-ajout{display:flex;gap:8px;align-items:center;margin-top:8px}
+.soc-ajout .zone-txt{margin:0;flex:1;min-width:0}
+.petit-btn{min-height:44px;min-width:44px;padding:0 10px;font-size:14px;position:relative}
+.ami{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.ami:last-child{border-bottom:0}
+.ami-t{flex:1;min-width:0}
+.ami-t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ami-t small{display:block;font-size:12px;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ami-b{display:flex;gap:6px;flex-shrink:0}
+.ami-b .mini-ic{width:22px;height:22px}
+.soc-invit{display:flex;align-items:center;gap:8px;background:#ffd23f;color:#1c1240;border:3px solid #000;border-radius:16px;padding:8px 10px;font-weight:700}
+.soc-invit span{flex:1}
+.defi-opp{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.defi-opp small{display:block;font-size:12px;opacity:.8}
+.defi-cl{margin:0 0 10px;padding-left:22px;font-variant-numeric:tabular-nums}
+.defi-cl li{padding:3px 0}
+.defi-cl li span{display:inline-block;min-width:60%}
+.defi-cl li.moi{color:#ffd84d}
+.fil-l{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px}
+.fil-l small{display:block;font-size:11px;opacity:.6}
+.fil-l.pour-moi{color:#ffd84d}
+.conv{max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.msg{align-self:flex-start;max-width:80%;background:rgba(255,255,255,.12);border-radius:14px 14px 14px 4px;padding:6px 10px;font-size:14px}
+.msg.moi{align-self:flex-end;background:#3fa7f5;color:#08122e;border-radius:14px 14px 4px 14px}
+.msg small{display:block;font-size:10px;opacity:.65}
+.rapides{display:flex;flex-wrap:wrap;gap:6px}
+.rapides .chip{padding:6px 10px;min-height:36px}
+.code-salon{font-size:44px;letter-spacing:.2em;text-align:center;color:#ffd84d;margin:4px 0;font-variant-numeric:tabular-nums}
+.attente-pts::after,.attente-dir::after{content:'';display:inline-block;width:1.2em;text-align:left;animation:pts 1.2s steps(4) infinite}
+@keyframes pts{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+.attente-dir{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-height:52px;font-size:16px;opacity:.9}
+body.direct .jauge .repere{display:none}
+@media (prefers-reduced-motion: reduce){.attente-pts::after,.attente-dir::after{animation:none;content:'...'}}
+.legende{margin:4px 0 0;opacity:.7;font-size:11.5px}
 
 </style>
 </head>
@@ -868,6 +911,7 @@ function appliquerRecompense(o) {
 
 // ---------- Facteur de difficulté ----------
 function facteurAdversaire(id) {
+  if (S && S.facteurFixe) return S.facteurFixe;
   let base = DIFF[C.div];
   if (S && S.cup) { const K = COUPES[S.cup.k]; base = S.cup.k === 'nat' ? DIFF[C.divisions[id]] * K.diff[S.cup.tour] : K.diff[S.cup.tour]; }
   return base * (0.88 + 0.3 * clubPar(id).force) * (1 + DIFF.j * C.journee * 9 / Math.max(9, C.calendrier.length)) * (1 + DIFF.s * Math.max(0, C.saison - 1)) * (1 + DIFF.r * (C.ansD1 || 0));
@@ -1000,14 +1044,16 @@ const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.15, r: 0.32 };
 let S = null;
 const NB_TF = 6, CHANGEMENTS = 3;
 const aStar = id => S && S.stars.includes(id);
-function nouveauMatch(m, auto) {
+function nouveauMatch(m, auto, opts) {
   m = m || prochainMatch(); const oppId = m.opp;
+  if (opts && opts.graine != null) fixerGraine(opts.graine);
   const cp = m.comp !== 'ligue' ? C.coupes[m.comp] : null;
   S = { auto: !!auto, opp: oppId, comp: m.comp, info: m, cup: cp ? { k: cp.k, tour: cp.tour } : null, eq: { p: clubPar(C.club), ia: clubPar(oppId) }, dom: m.dom, stars: [...C.stars],
     pioche: melanger(C.cartes.map(c => ({ ...c, val: valeurCarte(c) }))), defausse: [], main: [], sel: [], score: { p: 0, ia: 0 }, tf: 0,
     changements: CHANGEMENTS + (C.stars.includes('prepa') ? 1 : 0), phase: 'choix', attente: effetsVides(), actif: effetsVides(), histo: [], buteurs: [], defi: pick(DEFIS).id, evts: [], stats: { butsCombos: [], trios: 0, cartons: 0, but1mt: false, consigneUtile: false, meilleur: 0, meilleurCombo: '', arrets: 0 } };
   S.style = S.eq.ia.style;
   S.meteo = C.meteoProchaine || pick(Object.keys(METEOS));
+  if (opts) { Object.assign(S, opts); if (opts.style) S.style = opts.style; if (opts.meteo) S.meteo = opts.meteo; }
   piocher();
   preparerTF();
 }
@@ -1030,7 +1076,7 @@ function piocher() {
     S.main.push(S.pioche.pop());
   }
 }
-const enAttaque = () => S.tf % 2 === 0;
+const enAttaque = () => (S.tf % 2 === 0) !== !!S.inverse;
 // =====================================================================
 // CARTES ADVERSES : l'ordinateur annonce ce qu'il joue avant ton choix
 // =====================================================================
@@ -1056,7 +1102,7 @@ const PREF_STYLE = {
 function choisirCartesAdv() {
   const att = enAttaque(), cote = att ? 'att' : 'def';
   // combien de cartes : selon la division et la compétition
-  const eur = S.comp === 'eur', d = C.div;
+  const eur = S.comp === 'eur' || S.comp === 'defi', d = S.comp === 'ombre' ? 2 : C.div;
   let n = eur ? 2 : d === 1 ? (hasard() < 0.35 ? 2 : 1) : d === 2 ? 1 : (hasard() < 0.6 ? 1 : 0);
   if (S.type && S.type !== 'normal') n = Math.min(n, 1);
   if (S.tuto === 2) n = 1;
@@ -1083,7 +1129,7 @@ function preparerTF() {
     if (S.type === 'cf') m *= 0.85;
     S.cible = Math.round(m); S.intention = null;
   } else {
-    const pool = st === 'possession' ? ['tiki', 'unedeux', 'contre', 'unedeux', 'ct'] : st === 'aerien' ? ['ct', 'ct', 'debord', 'ct', 'contre'] : ['unedeux', 'contre', 'solo', 'ct', 'tiki', 'debord', 'percee'];
+    const pool = S.ombre && S.ombre.intentions ? [pickPoids(S.ombre.intentions)] : st === 'possession' ? ['tiki', 'unedeux', 'contre', 'unedeux', 'ct'] : st === 'aerien' ? ['ct', 'ct', 'debord', 'ct', 'contre'] : ['unedeux', 'contre', 'solo', 'ct', 'tiki', 'debord', 'percee'];
     S.intention = pick(pool);
     let m = (100 - i * 10 + rnd(17) - 8) * f;
     if (st === 'feu') m *= 1.1; if (st === 'bloc') m *= 0.9; if (st === 'contre') m *= 1.15;
@@ -1091,7 +1137,7 @@ function preparerTF() {
   }
   if (S.actif.cible !== 1) S.cible = Math.round(S.cible * S.actif.cible);
   if (S.rougeAdv) S.cible = Math.round(S.cible * 0.85);
-  S.adv = S.type === 'penalty' || S.tuto === 1 ? [] : choisirCartesAdv();
+  S.adv = S.type === 'penalty' || S.tuto === 1 || S.comp === 'direct' ? [] : choisirCartesAdv();
   S.advAnnulee = null;
   if (aStar('anticipe') && S.adv.length) { const mi = S.tf < NB_TF / 2 ? 1 : 2; S.strat = S.strat || {}; if (!S.strat[mi]) { S.strat[mi] = true; S.advAnnulee = S.adv.shift(); } }
   S.adv.forEach(k => { if (CARTES_ADV[k].cible) S.cible = Math.round(S.cible * CARTES_ADV[k].cible); });
@@ -1288,7 +1334,7 @@ const TF_SPECIAUX = {
   penalty: { nom: 'Penalty adverse', txt: 'Choisis ton côté. Sacrifie un Gardien pour couvrir deux côtés.' }
 };
 function tirerTypeTF(tf) {
-  if (tf === 0 || (S && S.tuto === 1)) return 'normal';
+  if (tf === 0 || (S && (S.tuto === 1 || S.comp === 'direct'))) return 'normal';
   if (tf % 2 === 0) { const x = rnd(100); return x < 58 ? 'normal' : x < 74 ? 'cf' : x < 90 ? 'corner' : 'eclair'; }
   return rnd(100) < 7 ? 'penalty' : 'normal';
 }
@@ -2060,8 +2106,8 @@ const TEXTE_EVT = {
 // =====================================================================
 // Jauge de frappe : vert = avantage au tireur, orange = avantage au gardien, rouge = raté.
 // Le gardien adverse choisit un côté au hasard.
-function issueFrappe(zone, qualite) {
-  const gk = pick(['G', 'C', 'D']), devine = zone[1] === gk, lucarne = zone === 'HG' || zone === 'HD';
+function issueFrappe(zone, qualite, gkChoix) {
+  const gk = gkChoix || pick(['G', 'C', 'D']), devine = zone[1] === gk, lucarne = zone === 'HG' || zone === 'HD';
   const marque = qualite === 'vert' ? (!devine || hasard() < (lucarne ? 0.5 : 0.3)) : qualite === 'jaune' ? (!devine && hasard() < 0.7) : false;
   return { gk, devine, marque, horsCadre: qualite === 'rouge' };
 }
@@ -2081,9 +2127,10 @@ function qualiteJauge(pos, vert, orange) { const p = Math.abs(pos - 0.5) * 100; 
 // =====================================================================
 // Léger : des compteurs cumulés et un résumé des 40 derniers matchs, rangés dans la sauvegarde.
 const carnetVide = () => ({ matchs: 0, tf: 0, efficacite: 0, combos: {}, trios: 0, cartons: 0, consignes: {}, cartesJouees: 0,
-  tirs: { vert: 0, orange: 0, rouge: 0, buts: 0 }, plongeons: { vert: 0, orange: 0, rouge: 0, bonCote: 0, arrets: 0 }, issues: {}, derniers: [] });
+  tirsCol: { G: 0, C: 0, D: 0 }, plongeonsCol: { G: 0, C: 0, D: 0 }, tirs: { vert: 0, jaune: 0, rouge: 0, buts: 0 }, plongeons: { vert: 0, jaune: 0, rouge: 0, bonCote: 0, arrets: 0 }, issues: {}, derniers: [] });
 // au moment où le joueur valide ses cartes, avant qu'elles quittent la main
 function noterChoix(r) {
+  if (S && S.comp === 'defi') S.defiPts += ptsTempsFort(r);
   if (!S || S.tuto) return;
   let eff = 1; try { const best = meilleurCoup(true).total; if (best > 0) eff = Math.min(1, r.total / best); } catch (e) { }
   S.carnet = S.carnet || { tf: [], tirs: [], plongeons: [] };
@@ -2103,13 +2150,86 @@ function verserCarnet(gp, gc) {
     if (t.coul === 3) K.trios++; if (t.coul === 4) K.cartons++;
     t.cons.forEach(c => (K.consignes[c] = (K.consignes[c] || 0) + 1));
   });
-  m.tirs.forEach(t => { K.tirs[t.q]++; if (t.marque) K.tirs.buts++; });
-  m.plongeons.forEach(t => { K.plongeons[t.q]++; if (t.bonCote) K.plongeons.bonCote++; if (t.arret) K.plongeons.arrets++; });
+  K.tirsCol = K.tirsCol || { G: 0, C: 0, D: 0 }; K.plongeonsCol = K.plongeonsCol || { G: 0, C: 0, D: 0 };
+  m.tirs.forEach(t => { K.tirs[t.q] = (K.tirs[t.q] || 0) + 1; if (t.marque) K.tirs.buts++; if (t.col) K.tirsCol[t.col]++; });
+  m.plongeons.forEach(t => { K.plongeons[t.q] = (K.plongeons[t.q] || 0) + 1; if (t.bonCote) K.plongeons.bonCote++; if (t.arret) K.plongeons.arrets++; if (t.col) K.plongeonsCol[t.col]++; });
   const eff = m.tf.length ? m.tf.reduce((a, t) => a + t.eff, 0) / m.tf.length : 1;
   K.derniers.unshift({ s: C.saison, j: C.journee, div: C.div, comp: S.comp || 'ligue', opp: S.opp, score: `${gp}-${gc}`, mur: Math.round(facteurAdversaire(S.opp) * 100) / 100,
     eff: Math.round(eff * 100) / 100, tf: m.tf.map(t => `${t.att ? 'A' : 'D'}:${t.combo || '-'}${t.coul ? '+c' + t.coul : ''}${t.cons.length ? '+' + t.cons.join('/') : ''}=${t.total}(${Math.round(t.eff * 100)}%)`).join(' '),
     tirs: m.tirs.map(t => t.q[0] + (t.marque ? '!' : '')).join(''), gb: m.plongeons.map(t => t.q[0] + (t.bonCote ? '' : 'x') + (t.arret ? '!' : '')).join('') });
   if (K.derniers.length > 40) K.derniers.length = 40;
+}
+
+// =====================================================================
+// MODES ENTRE AMIS : ombre, défi de la semaine, direct (règles sans affichage)
+// =====================================================================
+// Ces matchs ne comptent pas pour la carrière : ni classement ni coupe, un peu de pièces seulement.
+const MODES = { ombre: { nom: 'Contre l’ombre', ic: 'epees', gain: [18, 8, 4] }, defi: { nom: 'Défi de la semaine', ic: 'medaille', gain: [12, 6, 4] }, direct: { nom: 'Match en direct', ic: 'poignee', gain: [20, 10, 6] } };
+const DEFI_ESSAIS = 3;
+const estAmical = () => !!(S && MODES[S.comp]);
+
+// ---------- graines communes ----------
+function hacher(txt) { let h = 2166136261; for (const ch of String(txt)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+// tirage indépendant du reste du jeu : les deux téléphones obtiennent le même nombre
+function tirageCommun(graine, cle) { let t = (hacher(graine + ':' + cle) + 0x6D2B79F5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+function semaineDefi(d) {
+  d = d ? new Date(d) : new Date(); const j = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const n = j.getUTCDay() || 7; j.setUTCDate(j.getUTCDate() + 4 - n);
+  const an = j.getUTCFullYear(), sem = Math.ceil(((j - Date.UTC(an, 0, 1)) / 864e5 + 1) / 7);
+  return `${an}-${String(sem).padStart(2, '0')}`;
+}
+const pickPoids = (o, x) => { const e = Object.entries(o).filter(([, v]) => v > 0), tot = e.reduce((a, [, v]) => a + v, 0); if (!tot) return null; let r = (x == null ? hasard() : x) * tot; for (const [k, v] of e) { if ((r -= v) < 0) return k; } return e[e.length - 1][0]; };
+
+// ---------- ombre : l'ordinateur joue le deck et les habitudes d'un ami ----------
+const STYLE_COMBO = { tiki: 'possession', unedeux: 'possession', ct: 'aerien', debord: 'aerien', contre: 'contre', solo: 'contre', percee: 'feu' };
+function habitudes(P) {
+  const K = P.carnet || {}, cb = {};
+  Object.entries(K.combos || {}).forEach(([id, n]) => { if (COMBOS_ATT.some(k => k.id === id) && id !== 'simple' && id !== 'cf') cb[id] = n; });
+  const fav = Object.entries(cb).sort((a, b) => b[1] - a[1])[0];
+  return {
+    style: (fav && STYLE_COMBO[fav[0]]) || 'feu',
+    intentions: Object.keys(cb).length ? cb : null,
+    tirs: K.tirsCol && Object.values(K.tirsCol).some(Boolean) ? K.tirsCol : null,
+    plongeons: K.plongeonsCol && Object.values(K.plongeonsCol).some(Boolean) ? K.plongeonsCol : null
+  };
+}
+// force de l'ombre : la difficulté que l'ami affronte dans sa propre carrière, à mi-saison
+function facteurOmbre(P) {
+  const cl = clubPar(P.club) || { force: 0.5 };
+  return DIFF[P.div || 3] * (0.88 + 0.3 * cl.force) * (1 + DIFF.j * 4.5) * (1 + DIFF.s * Math.max(0, (P.saison || 1) - 1)) * (1 + DIFF.r * (P.ansD1 || 0));
+}
+function matchOmbre(P) {
+  const H = habitudes(P);
+  return { m: { comp: 'ombre', opp: P.club, dom: true, nom: MODES.ombre.nom, tour: P.pseudo || 'ami' },
+    opts: { ami: { code: P.code, pseudo: P.pseudo }, facteurFixe: facteurOmbre(P), style: H.style, ombre: H } };
+}
+// ---------- défi de la semaine : même adversaire et même graine pour tout le monde ----------
+function matchDefi() {
+  const sem = semaineDefi(), g = hacher('defi' + sem), grands = CLUBS.filter(c => c.div === 1 && c.force >= 0.75 && c.id !== C.club);
+  const opp = grands[g % grands.length];
+  const f = DIFF[C.div] * (0.88 + 0.3 * opp.force) * (1 + DIFF.s * Math.max(0, C.saison - 1)) * (1 + DIFF.r * (C.ansD1 || 0)) * 1.1;
+  return { m: { comp: 'defi', opp: opp.id, dom: false, nom: MODES.defi.nom, tour: 'semaine ' + sem.slice(5) }, opts: { graine: g, semaine: sem, facteurFixe: f, defiPts: 0 } };
+}
+// score du défi : la qualité de chaque temps fort (score / objectif, plafonnée) plus les buts
+const ptsTempsFort = r => Math.min(150, Math.round(100 * r.total / Math.max(1, S.cible)));
+const scoreDefi = () => S.defiPts + 150 * S.score.p - 100 * S.score.ia;
+
+// ---------- direct : deux téléphones ----------
+// Attaque contre défense. Le pressing et les consignes de chacun s'appliquent à l'autre.
+const DUEL = { K: 1.75, but: 1.5, occasion: 0.75 };
+function issueDuel(att, def) {
+  const a = att.total * (def.sur || 1), d = Math.max(1, def.total * (att.sur || 1));
+  const ratio = a / (DUEL.K * d);
+  return { issue: ratio >= DUEL.but ? 'but' : ratio >= DUEL.occasion ? 'occasion' : 'stoppe', a: Math.round(a), d: Math.round(d) };
+}
+// Duel de tir : le tireur vise une zone, le gardien un côté, chacun à la jauge.
+// Mauvais côté = but. Bon côté : tout dépend des deux timings. Frappe ratée (rouge) = à côté.
+const ARRET = { vert: { vert: 0.5, jaune: 0.8 }, jaune: { vert: 0.2, jaune: 0.5 }, rouge: { vert: 0.05, jaune: 0.15 } };
+function duelTir(tir, gardien, x) {
+  if (tir.q === 'rouge') return { marque: false, horsCadre: true, bonCote: tir.zone[1] === gardien.col };
+  const bonCote = tir.zone[1] === gardien.col;
+  if (!bonCote) return { marque: true, horsCadre: false, bonCote };
+  return { marque: x >= ARRET[gardien.q][tir.q], horsCadre: false, bonCote };
 }
 
 // =====================================================================
@@ -2200,7 +2320,7 @@ async function reprendreAvecCode(code) {
   if (code.length < 6) throw new Error('Le code joueur fait 8 caractères.');
   let j; try { j = await syncLire(code); } catch (e) { throw new Error('Pas de connexion au cloud.'); }
   if (!j || !j.data) throw new Error('Aucune carrière avec ce code.');
-  const p = profil(); p.code = code; if (j.pseudo) p.pseudo = j.pseudo; majProfil(p);
+  const p = profil(); p.code = code; if (j.pseudo) p.pseudo = j.pseudo; if (j.amis && j.amis.length) p.amis = j.amis.map(c => ({ code: c })); majProfil(p);
   C = migrer(j.data); sauver(); return C;
 }
 // --- copie manuelle : un texte à garder dans ses notes ou à coller sur un autre téléphone
@@ -2220,7 +2340,7 @@ async function syncEnvoyer() {
   const url = urlCloud(); if (!url || !C) return;
   const p = profil(); SYNC_ETAT = 'envoi';
   try {
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', code: p.code, pseudo: p.pseudo, maj: C.maj || Date.now(), data: C }) });
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', code: p.code, pseudo: p.pseudo, amis: (p.amis || []).map(a => a.code), maj: C.maj || Date.now(), data: C }) });
     const j = await r.json(); SYNC_ETAT = j.ok ? 'ok' : 'erreur';
   } catch (e) { SYNC_ETAT = 'hors-ligne'; }
 }
@@ -2234,6 +2354,20 @@ async function syncVerifier(surPlusRecent) {
   if (!urlCloud()) return;
   try { const j = await syncLire(); if (!j || !j.data) return; const local = charger(); if (!local || (j.maj || 0) > (local.maj || 0) + 5000) surPlusRecent(j); } catch (e) { }
 }
+
+// --- appels au serveur pour le social et le direct
+async function apiLire(action, params) {
+  const url = urlCloud(); if (!url) throw new Error('Sauvegarde automatique non activée.');
+  const q = new URLSearchParams(Object.assign({ action }, params || {}));
+  const r = await fetch(`${url}?${q}`); const j = await r.json(); if (!j.ok) throw new Error(j.erreur || 'Erreur du serveur'); return j;
+}
+async function apiEcrire(action, corps) {
+  const url = urlCloud(); if (!url) throw new Error('Sauvegarde automatique non activée.');
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action }, corps)) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.erreur || 'Erreur du serveur'); return j;
+}
+// publier dans le fil d'actualité, sans jamais bloquer le jeu
+function publier(txt, type, pour) { const p = profil(); if (!urlCloud() || !p.pseudo) return; apiEcrire('publier', { code: p.code, pseudo: p.pseudo, txt, type: type || '', pour: pour || null }).catch(() => { }); }
 
 // =====================================================================
 // CARTON PLEIN : écrans
@@ -2435,10 +2569,11 @@ function hub(onglet) {
   $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
-  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compétitions']];
+  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
   $('#nav').innerHTML = tabs.map(([id, ic, nom]) => `<button class="onglet ${id === ONGLET ? 'on' : ''}" data-o="${id}">${img(ic)}<span>${nom}</span>${id === 'formation' && pret ? '<i class="pastille-notif"></i>' : ''}</button>`).join('');
   $('#nav').querySelectorAll('.onglet').forEach(b => (b.onclick = () => { Son.clic(); hub(b.dataset.o); }));
-  ({ vestiaire, effectif, formation, boutique, competitions })[ONGLET]();
+  ({ vestiaire, effectif, formation, boutique, competitions, amis })[ONGLET]();
+  if (urlCloud() && ONGLET !== 'amis') chargerSocial().then(majPastilleAmis).catch(() => { });
 }
 function maj() { sauver(); hub(ONGLET); }
 function barreHaut() {
@@ -2703,7 +2838,7 @@ function afficherMatch() {
   if (!S || S.auto) return;
   if (S.type === 'penalty' && S.phase === 'choix') S.phase = 'penalty';
   const att = enAttaque(), sp = TF_SPECIAUX[S.type];
-  document.body.className = 'match' + (!att ? ' defense' : '');
+  document.body.className = 'match' + (!att ? ' defense' : '') + (S.comp === 'direct' ? ' direct' : '');
   vue(`<div class="match-vue">
     <div id="tableau"><div class="club">${blason(S.eq.p, 36)}<span class="lil">${S.eq.p.court}</span></div><div class="centre-sc"><div class="sc lil">${S.score.p}<span>-</span>${S.score.ia}</div><div class="mn lil ${S.comp !== 'ligue' ? 'cp' : ''}">${S.phase === 'fin' ? 'TERMINÉ' : S.minute + "'"}</div></div><div class="club d">${blason(S.eq.ia, 36)}<span class="lil">${S.eq.ia.court}</span></div></div>
     <div class="ligne-frise"><div class="frise">${Array.from({ length: NB_TF }, (_, i) => { const h = S.histo[i]; return `<span class="${i % 2 === 0 ? 'a' : 'd'} ${i === S.tf ? 'now' : ''} ${i < S.tf ? 'fait' : ''}">${h === 'p' ? img('ballon') : h === 'ia' ? '<b>✕</b>' : h === 'var' ? '<b>VAR</b>' : ''}</span>`; }).join('')}</div>
@@ -2722,7 +2857,8 @@ function afficherMatch() {
   const adv = $('#adv');
   const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
-  if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
+  if (S.comp === 'direct') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${echap(S.ami.pseudo)} ${att ? 'défend' : 'attaque'}</div><div class="sous">${att ? 'Il pose ses défenseurs en même temps que toi. Fais le plus gros total.' : 'Il prépare son attaque en même temps. Défends fort.'}</div></div><div class="cible ${att ? 'mur' : 'danger'} lil">${img(att ? 'mur' : 'feu', 'fond')}<span>?</span></div>`;
+  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
   else if (S.type === 'penalty') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">Penalty pour ${S.eq.ia.nom}</div><div class="sous">Faute dans la surface !</div></div><div class="cible danger lil">${img('filet', 'fond')}</div>`;
   else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
   zoneAction();
@@ -2734,8 +2870,8 @@ function zoneAction() {
   if (pz) { const t = S.phase === 'choix' && !S.modeChange && !S.tuto ? indice() : ''; pz.innerHTML = t ? `<span class="pz-i">${img('ampoule', 'ic')}${t}</span>` : ''; }
   bt.innerHTML = '';
   const ph = S.phase;
-  if (ph === 'choix' || ph === 'calcul') {
-    const enCalc = ph === 'calcul', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
+  if (ph === 'choix' || ph === 'calcul' || ph === 'attente') {
+    const enCalc = ph === 'calcul' || ph === 'attente', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
     const pts = enCalc ? S.anim.pts : r.somme, mult = enCalc ? (S.anim.mult == null ? r.combo.mult : S.anim.mult) : r.mult, tot = enCalc ? (S.anim.total == null ? '?' : S.anim.total) : r.total;
     const sb = seuilBut();
     ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
@@ -2744,6 +2880,7 @@ function zoneAction() {
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
       ${!vide && r.futur && r.futur.length ? `<div class="futur">${img('sablier', 'mini-ic')} Au prochain temps fort : ${r.futur.map(t => TYPES[t].txt.replace('Ton prochain temps fort ', '').replace(' au prochain temps fort', '').replace('Prochain objectif adverse', 'objectif adverse')).join(' · ')}</div>` : ''}`;
     majJauge(enCalc ? (S.anim.total == null ? 0 : S.anim.total) : (vide ? 0 : r.total));
+    if (ph === 'attente') bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} choisit ses cartes…</div>`;
     if (ph === 'choix') {
       if (S.modeChange) bt.innerHTML = `<button class="btn" id="bChg">Valider l'échange</button><button class="btn sec" id="bAnn">Annuler</button>`;
       else if (!S.sel.length && !S.changements && !S.main.some(c => TYPES[c.t].att === att || TYPES[c.t].consigne)) bt.innerHTML = `<button class="btn gros" id="bPasse">${att ? 'Pas de carte d’attaque : passer' : 'Pas de défenseur : subir'}</button>`;
@@ -2751,7 +2888,7 @@ function zoneAction() {
     }
   } else if (ph === 'occasion' || ph === 'tirAdverse' || ph === 'penalty') {
     const moi = ph === 'occasion', pen = ph === 'penalty', gk = S.main.find(c => c.t === 'gardien');
-    if (!moi && !S.tendance) S.tendance = { col: pick(['G', 'C', 'D']) };
+    if (!moi && !S.tendance) S.tendance = { col: (S.ombre && S.ombre.tirs && pickPoids(S.ombre.tirs)) || pick(['G', 'C', 'D']) };
     const T = S.tirEtat || (S.tirEtat = { zone: null, col: null });
     const jauge = (vert, jaune) => `<div class="jauge-tir" id="jt"><i class="z-rouge"></i><i class="z-jaune" style="left:${50 - jaune / 2}%;width:${jaune}%"></i><i class="z-vert" style="left:${50 - vert / 2}%;width:${vert}%"></i><b id="curseur"></b></div>`;
     ac.innerHTML = `<div class="ruban lil">${moi ? (T.zone ? 'Frappe au bon moment !' : 'Occasion ! Vise une zone') : T.col ? 'Plonge au bon moment !' : pen ? 'Penalty ! Choisis ton côté' : S.eq.ia.nom + ' frappe ! Choisis ton côté'}</div>
@@ -2759,9 +2896,14 @@ function zoneAction() {
       ${moi ? (T.zone ? `${jauge(T.vert, T.jaune)}<div class="sous-cage"><b class="c-vert">Vert</b> : avantage au tireur. <b class="c-orange">Orange</b> : avantage au gardien. <b class="c-rouge">Rouge</b> : à côté.</div>`
         : `<div class="sous-cage">${S.res.total} sur ${S.cible} : le gardien va plonger d'un côté. ${S.res.valides.some(c => c.t === 'frappe') ? 'Ta Frappe élargit la zone verte.' : ''}</div>`)
         : T.col ? `${jauge(T.vert, T.jaune)}<div class="sous-cage"><b class="c-vert">Vert</b> : arrêt assuré si tu es du bon côté. <b class="c-orange">Orange</b> : tu peux le toucher. <b class="c-rouge">Rouge</b> : plongeon raté.</div>`
+        : S.comp === 'direct' ? `<div class="sous-cage">${echap(S.ami.pseudo)} vise en même temps que toi. À toi de deviner.</div>`
         : `<div class="sous-cage">${img('ampoule', 'mini-ic')} Le tireur frappe souvent <b>${cote(S.tendance.col)}</b>.${pen && gk ? `<br><label class="sacrif"><input type="checkbox" id="sacr"> Sacrifier ton Gardien (${gk.val}) pour couvrir 2 côtés</label>` : ''}</div>`}`;
     if (moi && T.zone) { bt.innerHTML = `<button class="btn gros" id="bFrappe">Frapper !</button>`; lancerJauge(); }
     if (!moi && T.col) { bt.innerHTML = `<button class="btn gros" id="bPlonge">Plonger !</button>`; lancerJauge(); }
+  } else if (ph === 'attenteTir') {
+    const T = S.tirEtat || {}, moi = enAttaque();
+    ac.innerHTML = `<div class="ruban lil">${moi ? 'Frappe partie…' : 'Plongeon choisi…'}</div>${sceneTir({ moi, choix: false, zone: T.zone, col: T.col, gardienEq: moi ? S.eq.ia : S.eq.p })}`;
+    bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} ${moi ? 'plonge' : 'frappe'}…</div>`;
   } else if (ph === 'tirRes') {
     const t = S.tir;
     const titre = t.moiTire ? (t.marque ? 'BUT !' : t.horsCadre ? 'À côté !' : 'Arrêté !') : (t.marque ? 'But adverse' : 'Arrêt !');
@@ -2777,11 +2919,15 @@ function zoneAction() {
       stoppe: ['bouclier', 'Action stoppée !', `${r.combo.nom} à ${r.total} contre ${S.cible}.`, 'gagne'],
       butAdverse: ['feu', 'But adverse', `Ta défense (${r.total}) n'a rien pu faire contre ${S.cible}.`, 'perd']
     }[ph] || ['ballon', '', '', ''];
+    if (S.comp === 'direct' && S.duelAdv) {
+      const c = S.duelAdv.combo;
+      R[2] = { but: `${r.total} contre sa défense (${S.cible}) : ça passe !`, rate: `Sa défense (${S.cible}) a tout bloqué.`, stoppe: `Ta défense (${r.total}) stoppe son ${c} (${S.cible}).`, butAdverse: `Son ${c} (${S.cible}) passe ta défense (${r.total}).` }[ph] || R[2];
+    }
     ac.innerHTML = `<div class="resultat ${R[3]}">${img(R[0], 'icone-res')}<div><div class="titre-res lil">${R[1]}</div><div class="sous">${R[2]}</div></div></div>`;
     bt.innerHTML = `<button class="btn gros" id="bSuite">${S.tf === NB_TF - 1 ? 'Coup de sifflet final' : 'Temps fort suivant'}</button>`;
   }
   // main
-  const visible = ph === 'choix' || ph === 'calcul';
+  const visible = ph === 'choix' || ph === 'calcul' || ph === 'attente';
   const plusDe = c => {
     if (!att && ((LECTURE[c.t] && LECTURE[c.t].includes(S.intention)) || (c.sp && SPECIAUX[c.t].lectureTout))) return '×2';
     if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) return '×2';
@@ -2819,7 +2965,7 @@ function majJauge(total) {
   const pct = Math.min(100, total / (S.cible * 1.3) * 100);
   g.style.transform = `scaleX(${pct / 100})`;
   const sb = enAttaque() ? seuilBut() : 1;
-  g.className = 'rempli ' + (total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
+  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
 }
 function majCalcul() {
   const r = S.anim.r, p = document.querySelector('.boite-pts .n'), m = document.querySelector('.boite-mult .n'), t = document.querySelector('.total .n');
@@ -2864,7 +3010,9 @@ async function jouer(force) {
   secouer(); etoilesActives(r).forEach(allumer);
   await sleep(320);
   await compter(r.total);
-  const t = issue(r);
+  let t;
+  if (S.comp === 'direct') { try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
+  else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
   await sleep(650);
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
@@ -2922,12 +3070,20 @@ function lancerJauge() {
   if (REDUIT) { JAUGE.pos = 0.5; cur.style.transform = 'translateX(50cqw)'; return; }
   JAUGE.raf = requestAnimationFrame(pas);
 }
-function frapper() {
+async function frapper() {
   if (S.phase !== 'occasion' || !S.tirEtat || !S.tirEtat.zone || !JAUGE) return;
   cancelAnimationFrame(JAUGE.raf);
   const T = S.tirEtat, z = T.zone, qualite = qualiteJauge(JAUGE.pos, T.vert, T.jaune);
-  const { gk, devine, marque } = issueFrappe(z, qualite);
-  noterTir(true, qualite, { marque });
+  if (S.comp === 'direct') {
+    let d; try { d = await attendreTir(true, { zone: z, q: qualite }); } catch (e) { if (S) { toast('Match arrêté'); quitterDirect(); S = null; hub('amis'); } return; }
+    const g = d.gardien, nom = echap(S.ami.pseudo);
+    noterTir(true, qualite, { marque: d.R.marque, col: z[1] });
+    const t = { moiTire: true, zone: z, gk: g.col, marque: d.R.marque, horsCadre: d.R.horsCadre, qualite, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
+    t.texte = t.horsCadre ? `Frappe ratée : le ballon passe ${z[0] === 'H' ? 'au-dessus' : 'à côté'}.` : !d.R.bonCote ? `Tir ${nomZone(z)}, ${nom} a plongé ${cote(g.col)}.` : d.R.marque ? `${nom} avait deviné, mais ta frappe passe !` : `${nom} a deviné et sorti le ballon.`;
+    return resoudreTir(t);
+  }
+  const { gk, devine, marque } = issueFrappe(z, qualite, S.ombre && S.ombre.plongeons ? pickPoids(S.ombre.plongeons) : null);
+  noterTir(true, qualite, { marque, col: z[1] });
   const t = { moiTire: true, zone: z, gk, marque, horsCadre: qualite === 'rouge', qualite, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = t.horsCadre ? `Frappe ratée : le ballon passe ${z[0] === 'H' ? 'au-dessus' : 'à côté'}.` : marque ? (devine ? 'Le gardien était du bon côté, mais la frappe parfaite le bat !' : `Tir ${nomZone(z)}, le gardien plonge ${cote(gk)}.`) : devine ? `Le gardien a deviné : tir ${nomZone(z)}.` : 'Frappe trop molle : le gardien a le temps de revenir.';
   resoudreTir(t);
@@ -2939,14 +3095,22 @@ function plonger(col) {
   S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: 18 + (gant ? 8 : 0), jaune: 62 };
   zoneAction();
 }
-function plongeon() {
+async function plongeon() {
   if ((S.phase !== 'tirAdverse' && S.phase !== 'penalty') || !S.tirEtat || !S.tirEtat.col || !JAUGE) return;
   cancelAnimationFrame(JAUGE.raf);
   const T = S.tirEtat, col = T.col, pen = S.phase === 'penalty', qualite = qualiteJauge(JAUGE.pos, T.vert, T.jaune);
+  if (S.comp === 'direct') {
+    let d; try { d = await attendreTir(false, { col, q: qualite }); } catch (e) { if (S) { toast('Match arrêté'); quitterDirect(); S = null; hub('amis'); } return; }
+    const z = d.tir.zone, nom = echap(S.ami.pseudo);
+    noterTir(false, qualite, { bonCote: d.R.bonCote, arret: !d.R.marque, col });
+    const t = { moiTire: false, zone: z, gk: col, couverts: [col], marque: d.R.marque, horsCadre: d.R.horsCadre, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
+    t.texte = d.R.horsCadre ? `${nom} rate sa frappe : à côté !` : !d.R.bonCote ? `${nom} tire ${nomZone(z)}, tu as plongé ${cote(col)}.` : d.R.marque ? 'Bon côté, mais la frappe était trop belle.' : `Arrêt ! Tu as lu le tir de ${nom}.`;
+    return resoudreTir(t, false);
+  }
   const couverts = [col];
   if (T.sac) { const g = S.main.find(x => x.t === 'gardien'); if (g) retirerJouees([g]); couverts.push(col === 'C' ? pick(['G', 'D']) : 'C'); }
   const { zone: z, colTir, bonCote, arret } = issuePlongeon(qualite, couverts, S.tendance.col);
-  noterTir(false, qualite, { bonCote, arret });
+  noterTir(false, qualite, { bonCote, arret, col });
   const t = { moiTire: false, zone: z, gk: arret || qualite !== 'rouge' ? col : 'C', couverts, marque: !arret, rebond: [POS_ZONE[z][0] + (colTir === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = arret ? `${qualite === 'vert' ? 'Plongeon parfait' : 'Du bout des gants'} : tir ${nomZone(z)}${T.sac ? ', ton sacrifice a payé' : ''}.`
     : !bonCote ? `Tir ${nomZone(z)}, tu as plongé ${cote(col)}.` : qualite === 'rouge' ? 'Bon côté, mais plongeon raté : trop tôt ou trop tard.' : 'Bon côté, mais le ballon passe sous les gants.';
@@ -2976,9 +3140,9 @@ function resoudreTir(t, pen) {
 }
 function rafraichirTableau() { const s = document.querySelector('#tableau .sc'); if (s) s.innerHTML = `${S.score.p}<span>-</span>${S.score.ia}`; }
 function suiteTF() {
-  Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
+  Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.duelAdv = null; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
   const go = () => { piocher(); preparerTF(); };
-  const e = tirerEvenement(); if (!e) return go();
+  const e = S.comp === 'defi' || S.comp === 'direct' ? null : tirerEvenement(); if (!e) return go();
   const T = TEXTE_EVT[e.id](e);
   modal(`${img(T.ic, 'grande-ic')}<h1 class="lil">${T.titre}</h1><p>${T.txt}</p><div class="btns col">${T.a ? `<button class="btn" id="eA">${T.a}</button><button class="btn sec" id="eB">${T.b}</button>` : `<button class="btn" id="eA">Continuer</button>`}</div>`, () => {
     $('#eA').onclick = () => { appliquerEvenement(e, 'a'); fermerModal(); go(); };
@@ -3020,6 +3184,7 @@ function finMatch() {
   $('#flash').style.display = 'none';
   S.phase = 'fin'; Son.sifflet(true); Son.tension(0);
   if (S.tuto) return finTuto();
+  if (estAmical()) return ecranFinAmical();
   if (S.comp !== 'ligue' && S.score.p === S.score.ia) return seanceTab();
   ecranFin(null);
 }
@@ -3056,7 +3221,7 @@ function ecranFin(tab) {
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
-  if (cp && cp.gagne) setTimeout(confettis, 1300);
+  if (cp && cp.gagne) { setTimeout(confettis, 1300); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
   const cpTxt = cp ? `<div class="cp-res ${cp.gagne ? 'or' : ''}">${img(cp.gagne ? 'trophee' : COUPES[cp.k].ic, 'mini-ic')} ${cp.gagne ? `Vainqueur de la ${cp.nom} ! Prime : ${cp.prime} pièces` : cp.qualifie ? `${cp.nom} : direction la ${cp.suivant.toLowerCase()}` : `${cp.nom} : fin de l'aventure en ${cp.tourJoue.toLowerCase()}`}</div>` : '';
   vue(`<div class="page fin-match">
     <div class="fm-titre lil ${gagne ? 'v' : gp < gc || (cp && !cp.qualifie) ? 'd' : 'n'}">${titre}</div>
@@ -3106,6 +3271,8 @@ function finDeSaison() {
     <div class="gain lil">${img('piece')} +${{ montee: 80, champion: 150, europe: 100, maintien: 40, descente: 30 }[res.issue]} pièces de prime</div>
     <button class="btn gros" id="bSaison">${res.offres && res.offres.length ? `Voir les offres (${res.offres.length})` : `Saison ${C.saison} en ${nomDiv(C.div)}`}</button></div>`, 'plein scene-fond');
   if (['montee', 'champion', 'europe'].includes(res.issue)) { Son.jingle(); confettis(); }
+  const fil = { montee: `monte en ${nomDiv(res.apres)} avec ${cl.nom}`, champion: `est champion ${P.de} avec ${cl.nom} !`, europe: `qualifie ${cl.nom} pour l’Europe`, descente: `descend avec ${cl.nom}, la revanche se prépare` }[res.issue];
+  if (fil) publier(fil, 'saison');
   $('#bSaison').onclick = () => { Son.clic(); if (res.offres && res.offres.length) choixOffres(); else hub('vestiaire'); };
 }
 function choixOffres() {
@@ -3126,6 +3293,280 @@ function choixOffres() {
 
 // ---------- Démarrage ----------
 accueil();
+
+// =====================================================================
+// AMIS : fil d'actualité, messages, ombre, défi de la semaine, direct
+// =====================================================================
+let SOCIAL = null, SOCIAL_T = 0;
+const amisListe = () => profil().amis || [];
+const nonLus = () => { if (!SOCIAL) return 0; const p = profil(); return SOCIAL.messages.filter(m => m.a === p.code && m.t > (p.vuMsg || 0)).length; };
+const ilYa = t => { const s = (Date.now() - t) / 1000; return s < 90 ? 'à l’instant' : s < 3600 ? `il y a ${Math.round(s / 60)} min` : s < 86400 ? `il y a ${Math.round(s / 3600)} h` : new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); };
+const echap = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+async function chargerSocial(force) {
+  if (!urlCloud()) return null;
+  if (!force && SOCIAL && Date.now() - SOCIAL_T < 20000) return SOCIAL;
+  const p = profil();
+  const j = await apiLire('social', { code: p.code, amis: amisListe().map(a => a.code).join(','), semaine: semaineDefi() });
+  if (!j.v || j.v < 2) throw new Error('le script Google doit être mis à jour (nouvelle version du déploiement).');
+  SOCIAL = j; SOCIAL_T = Date.now();
+  // complète les pseudos et clubs des amis à partir de leurs profils (une fois)
+  const manque = amisListe().filter(a => !a.club);
+  for (const a of manque) { try { const r = await apiLire('profil', { code: a.code }); if (r.profil) Object.assign(a, { pseudo: r.profil.pseudo, club: r.profil.club }); } catch (e) { } }
+  if (manque.length) majProfil(p);
+  majPastilleAmis();
+  return SOCIAL;
+}
+function majPastilleAmis() {
+  const b = document.querySelector('.onglet[data-o="amis"]'); if (!b) return;
+  const n = nonLus() + invitations().length, i = b.querySelector('.pastille-notif');
+  if (n && !i) b.insertAdjacentHTML('beforeend', '<i class="pastille-notif"></i>'); else if (!n && i) i.remove();
+}
+const invitations = () => { if (!SOCIAL) return []; const p = profil(); return SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 20 * 60000); };
+
+// ---------- écran principal ----------
+function amis() {
+  const p = profil();
+  if (!urlCloud()) return vue(`<div class="page">${bulle('dede', 'Pour jouer avec tes amis, il faut d’abord la sauvegarde automatique (menu > Sauvegarde).')}</div>`);
+  if (!p.pseudo) return demanderPrenom(() => hub('amis'));
+  vue(`<div class="page soc">
+    <div class="soc-moi"><div><b class="lil">${echap(p.pseudo)}</b><small>Ton code ami : <span class="code-j">${p.code}</span></small></div><button class="btn sec petit-btn" id="sPartage">Partager</button></div>
+    <div id="sInvit"></div>
+    <div id="sDefi" class="soc-bloc"><div class="soc-t lil">${img('medaille', 'mini-ic')} Défi de la semaine</div><p class="petit">Chargement…</p></div>
+    <div class="soc-bloc"><div class="soc-t lil">${img('poignee', 'mini-ic')} Mes amis</div><div id="sAmis">${listeAmisHTML()}</div><p class="petit legende">⚔️ jouer contre son ombre · 💬 messages · ⚡ inviter en direct</p>
+      <div class="soc-ajout"><input id="sCode" class="zone-txt code-j" maxlength="10" autocapitalize="characters" placeholder="CODE D’UN AMI"><button class="btn" id="sAjout">Ajouter</button></div></div>
+    <div class="soc-bloc"><div class="soc-t lil">${img('epees', 'mini-ic')} Match en direct</div><p class="petit">Chacun sur son téléphone, avec son équipe. Les deux joueurs posent leurs cartes en même temps.</p>
+      <div class="btns"><button class="btn" id="sCree">Créer un match</button><button class="btn sec" id="sRejoint">Rejoindre</button></div></div>
+    <div class="soc-bloc"><div class="soc-t lil">${img('journal', 'mini-ic')} Fil d’actualité</div><div id="sFil"><p class="petit">Chargement…</p></div></div>
+  </div>`);
+  $('#sPartage').onclick = async () => { const t = `Ajoute-moi dans Carton Plein : mon code ami est ${p.code}`; try { if (navigator.share) await navigator.share({ text: t }); else { await navigator.clipboard.writeText(t); toast('Code copié'); } } catch (e) { } };
+  $('#sAjout').onclick = () => ajouterAmi($('#sCode').value);
+  $('#sCree').onclick = () => creerDirect(null);
+  $('#sRejoint').onclick = rejoindreDirectCode;
+  brancherAmis();
+  chargerSocial(true).then(remplirSocial).catch(e => { const f = $('#sFil'); if (f) f.innerHTML = `<p class="petit">Pas de connexion : ${echap(e.message)}</p>`; });
+}
+function listeAmisHTML() {
+  const L = amisListe(), p = profil();
+  if (!L.length) return '<p class="petit">Ajoute un ami avec son code (il le trouve ici, dans son onglet Amis).</p>';
+  return L.map(a => { const cl = a.club && clubPar(a.club), n = SOCIAL ? SOCIAL.messages.filter(m => m.de === a.code && m.a === p.code && m.t > (p.vuMsg || 0)).length : 0;
+    return `<div class="ami">${cl ? blason(cl, 34) : img('maillot', 'mini-ic')}<div class="ami-t"><b>${echap(a.pseudo || a.code)}</b><small>${cl ? echap(cl.nom) : 'Profil en chargement'}</small></div>
+      <div class="ami-b"><button class="btn petit-btn" data-ombre="${a.code}" aria-label="Jouer contre son ombre">${img('epees', 'mini-ic')}</button><button class="btn sec petit-btn" data-msg="${a.code}" aria-label="Messages">💬${n ? `<i class="pastille-notif"></i>` : ''}</button><button class="btn sec petit-btn" data-direct="${a.code}" aria-label="Inviter en direct">⚡</button></div></div>`; }).join('');
+}
+function brancherAmis() {
+  document.querySelectorAll('[data-ombre]').forEach(b => (b.onclick = () => lancerOmbre(b.dataset.ombre)));
+  document.querySelectorAll('[data-msg]').forEach(b => (b.onclick = () => conversation(b.dataset.msg)));
+  document.querySelectorAll('[data-direct]').forEach(b => (b.onclick = () => creerDirect(b.dataset.direct)));
+}
+function remplirSocial(S0) {
+  if (!S0 || !$('#sFil')) return;
+  const p = profil();
+  $('#sAmis').innerHTML = listeAmisHTML(); brancherAmis();
+  // invitations à un match en direct
+  const inv = invitations();
+  $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button></div>`).join('');
+  document.querySelectorAll('[data-salon]').forEach(b => (b.onclick = () => rejoindreDirect(b.dataset.salon)));
+  // fil
+  const fil = [...S0.fil].reverse();
+  $('#sFil').innerHTML = fil.length ? fil.map(x => `<div class="fil-l ${x.pour === p.code ? 'pour-moi' : ''}"><b>${echap(x.de === p.code ? 'Toi' : x.pseudo)}</b> ${echap(x.txt)}<small>${ilYa(x.t)}</small></div>`).join('') : '<p class="petit">Rien pour l’instant. Les trophées, montées et matchs entre amis s’afficheront ici.</p>';
+  // défi
+  const D = S0.defi || {}, codes = new Set([p.code, ...amisListe().map(a => a.code)]);
+  const lignes = Object.entries(D).filter(([c]) => codes.has(c)).sort((a, b) => b[1].score - a[1].score);
+  const moi = D[p.code], essais = Math.max(moi ? moi.essais : 0, essaisDefiLocaux()), reste = DEFI_ESSAIS - essais;
+  const { m } = matchDefi(), opp = clubPar(m.opp);
+  $('#sDefi').innerHTML = `<div class="soc-t lil">${img('medaille', 'mini-ic')} Défi de la semaine</div>
+    <div class="defi-opp">${blason(opp, 40)}<div><b>${echap(opp.nom)}</b><small>Même adversaire et même tirage pour tout le monde. ${reste > 0 ? `${reste} essai${reste > 1 ? 's' : ''} restant${reste > 1 ? 's' : ''}` : 'Plus d’essai cette semaine'}.</small></div></div>
+    ${lignes.length ? `<ol class="defi-cl">${lignes.map(([c, l]) => `<li class="${c === p.code ? 'moi' : ''}"><span>${echap(c === p.code ? 'Toi' : l.pseudo)}</span><b class="lil">${l.score}</b></li>`).join('')}</ol>` : ''}
+    <button class="btn gros" id="sDefiGo" ${reste > 0 ? '' : 'disabled'}>Jouer le défi</button>`;
+  $('#sDefiGo').onclick = lancerDefi;
+  // messages lus quand on regarde ses invitations : non, seulement en ouvrant la conversation
+}
+function demanderPrenom(suite) {
+  modal(`${img('maillot', 'grande-ic')}<h1 class="lil">Ton prénom</h1><p class="petit">Il s’affiche chez tes amis.</p><input id="pNom" class="zone-txt" maxlength="16" placeholder="Prénom"><div class="btns"><button class="btn" id="pOk">Valider</button><button class="btn sec" id="pNon">Plus tard</button></div>`, () => {
+    $('#pOk').onclick = () => { const v = $('#pNom').value.trim(); if (!v) return; const p = profil(); p.pseudo = v; majProfil(p); syncPlanifier(); fermerModal(); suite(); };
+    $('#pNon').onclick = () => { fermerModal(); hub('vestiaire'); };
+  });
+}
+async function ajouterAmi(code) {
+  code = (code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); const p = profil();
+  if (code.length < 6) return toast('Le code ami fait 8 caractères');
+  if (code === p.code) return toast('C’est ton propre code');
+  if (amisListe().some(a => a.code === code)) return toast('Déjà dans tes amis');
+  try {
+    const r = await apiLire('profil', { code }); if (!r.profil) return toast('Aucun joueur avec ce code');
+    p.amis = [...amisListe(), { code, pseudo: r.profil.pseudo, club: r.profil.club }]; majProfil(p); syncPlanifier();
+    toast(`${r.profil.pseudo || 'Ami'} ajouté`); hub('amis');
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- messages ----------
+const RAPIDES = ['Bien joué !', 'Revanche ?', 'Trop fort 😄', 'On joue ce soir ?', '⚽🔥'];
+function conversation(code) {
+  const p = profil(), a = amisListe().find(x => x.code === code) || { code };
+  const rendre = () => {
+    const L = SOCIAL ? SOCIAL.messages.filter(m => (m.de === code && m.a === p.code) || (m.de === p.code && m.a === code)) : [];
+    modal(`<h1 class="lil">${echap(a.pseudo || code)}</h1>
+      <div class="conv" id="conv">${L.length ? L.map(m => `<div class="msg ${m.de === p.code ? 'moi' : ''}">${m.type === 'invite' ? '⚡ Invitation à un match en direct' : echap(m.txt)}<small>${ilYa(m.t)}</small></div>`).join('') : '<p class="petit centre">Pas encore de message.</p>'}</div>
+      <div class="rapides">${RAPIDES.map((t, i) => `<button class="chip" data-r="${i}">${t}</button>`).join('')}</div>
+      <div class="soc-ajout"><input id="mTxt" class="zone-txt" maxlength="200" placeholder="Message"><button class="btn" id="mEnv">Envoyer</button></div>
+      <div class="btns"><button class="btn sec" id="mFer">Fermer</button></div>`, () => {
+      const cv = $('#conv'); cv.scrollTop = cv.scrollHeight;
+      const envoyer = async txt => { if (!txt.trim()) return; try { await apiEcrire('message', { de: p.code, a: code, pseudo: p.pseudo, txt }); await chargerSocial(true); rendre(); } catch (e) { toast(e.message); } };
+      $('#mEnv').onclick = () => envoyer($('#mTxt').value);
+      document.querySelectorAll('[data-r]').forEach(b => (b.onclick = () => envoyer(RAPIDES[+b.dataset.r])));
+      $('#mFer').onclick = () => { fermerModal(); if (ONGLET === 'amis') hub('amis'); };
+    });
+    p.vuMsg = Date.now(); majProfil(p); majPastilleAmis();
+  };
+  rendre();
+}
+
+// ---------- ombre ----------
+async function lancerOmbre(code) {
+  toast('Chargement de l’ombre…');
+  try {
+    const r = await apiLire('profil', { code }); if (!r.profil) return toast('Profil introuvable');
+    const { m, opts } = matchOmbre(r.profil);
+    lancerAmical(m, opts, `Tu affrontes l’équipe de <b>${echap(r.profil.pseudo)}</b>, jouée par l’ordinateur avec ses habitudes : ses combos préférés, ses côtés de tir et de plongeon.`);
+  } catch (e) { toast(e.message); }
+}
+// ---------- défi ----------
+const cleDefi = () => 'carton-plein-defi-' + semaineDefi();
+const essaisDefiLocaux = () => { try { return +localStorage.getItem(cleDefi()) || 0; } catch (e) { return 0; } };
+function lancerDefi() {
+  if (essaisDefiLocaux() >= DEFI_ESSAIS) return toast('Plus d’essai cette semaine');
+  try { localStorage.setItem(cleDefi(), essaisDefiLocaux() + 1); } catch (e) { }
+  const { m, opts } = matchDefi();
+  lancerAmical(m, opts, `Tout le monde affronte la même équipe avec le même tirage cette semaine. Chaque temps fort rapporte des points selon ton score face à l’objectif (150 au plus), +150 par but marqué, −100 par but encaissé. ${DEFI_ESSAIS} essais, le meilleur compte.`);
+}
+// ---------- lancement commun des matchs entre amis ----------
+function lancerAmical(m, opts, texte) {
+  document.body.className = 'match'; $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = '';
+  nouveauMatch(m, false, opts);
+  const opp = S.eq.ia, M = MODES[S.comp];
+  modal(`<div class="comp-tag lil europe">${M.nom}</div><div class="coup-envoi">${blason(S.eq.p, 56)}<span class="lil">VS</span>${blason(opp, 56)}</div><h1 class="lil centre">${S.eq.p.nom} - ${opp.nom}</h1>
+    <div class="regles"><div>${img(M.ic)}<span>${texte}</span></div><div>${img(METEOS[S.meteo].ic)}<span><b>${METEOS[S.meteo].nom}</b> : ${METEOS[S.meteo].txt}.</span></div><div>${img('piece')}<span>Match amical : ta carrière n’est pas touchée, quelques pièces à gagner.</span></div></div>
+    <div class="btns"><button class="btn gros" id="mGo">Coup d'envoi</button><button class="btn sec" id="mAnn">Annuler</button></div>`, () => {
+    $('#mGo').onclick = () => { Son.sifflet(false); fermerModal(); afficherMatch(); };
+    $('#mAnn').onclick = () => { fermerModal(); quitterDirect(); S = null; hub('amis'); };
+  });
+}
+// fin d'un match entre amis : pièces, fil d'actualité, retour aux amis
+function ecranFinAmical() {
+  const gp = S.score.p, gc = S.score.ia, M = MODES[S.comp], res = gp > gc ? 0 : gp === gc ? 1 : 2;
+  const gain = M.gain[res]; C.pieces += gain; sauver();
+  let extra = '';
+  const ami = S.ami ? S.ami.pseudo : S.eq.ia.nom;
+  if (S.comp === 'ombre') publier(`${['a battu', 'a fait match nul contre', 'a perdu contre'][res]} l’ombre de ${ami} (${gp}-${gc})`, 'ombre', S.ami && S.ami.code);
+  if (S.comp === 'direct' && S.direct && S.direct.role === 'hote') publier(`${['a battu', 'a fait match nul contre', 'a perdu contre'][res]} ${ami} en direct (${gp}-${gc})`, 'direct', S.ami && S.ami.code);
+  if (S.comp === 'defi') {
+    const sc = Math.max(0, scoreDefi()), p = profil();
+    extra = `<div class="cp-res or">${img('medaille', 'mini-ic')} Score du défi : <b class="lil">${sc}</b> points</div>`;
+    apiEcrire('defi', { semaine: S.semaine, code: p.code, pseudo: p.pseudo, club: clubPar(C.club).nom, score: sc }).then(() => publier(`a fait ${sc} points au défi de la semaine`, 'defi')).catch(() => { });
+  }
+  if (S.comp === 'direct') quitterDirect();
+  const titre = ['Victoire !', 'Match nul', 'Défaite'][res];
+  if (res === 0) setTimeout(() => { Son.jingle(); confettis(); }, 400);
+  vue(`<div class="page fin-match">
+    <div class="comp-tag lil europe">${M.nom}</div>
+    <div class="fm-titre lil ${['v', 'n', 'd'][res]}">${titre}</div>
+    <div class="score-fin lil">${blason(S.eq.p, 50)}<span>${gp} - ${gc}</span>${blason(S.eq.ia, 50)}</div>
+    ${S.buteurs.length ? `<div class="buteurs">${img('ballon', 'mini-ic')} ${S.buteurs.map(ji => C.effectif[ji].nom).join(', ')}</div>` : ''}
+    ${extra}
+    <div class="gain lil">${img('piece')} +${gain} pièces</div>
+    <button class="btn gros" id="bFinOk">Retour aux amis</button>
+  </div>`, 'plein');
+  $('#bFinOk').onclick = () => { Son.clic(); S = null; SOCIAL_T = 0; hub('amis'); };
+}
+
+// =====================================================================
+// MATCH EN DIRECT : deux téléphones, un salon sur le serveur
+// =====================================================================
+// L'hôte attaque aux temps forts pairs, l'invité aux impairs. Chaque téléphone envoie ses choix
+// (total de cartes, tir, plongeon) puis attend ceux de l'autre. Le résultat se calcule pareil des deux côtés.
+let DIRECT = null;
+const POLL_MS = 1500, PATIENCE_MS = 90000;
+const moiJoueur = () => { const p = profil(); return { code: p.code, pseudo: p.pseudo, club: C.club }; };
+
+async function creerDirect(codeAmi) {
+  try {
+    const j = await apiEcrire('salonCree', { joueur: moiJoueur() }), s = j.salon, p = profil();
+    DIRECT = { id: s.id, role: 'hote', graine: s.graine, actif: true };
+    if (codeAmi) apiEcrire('message', { de: p.code, a: codeAmi, pseudo: p.pseudo, txt: 'Invitation', type: 'invite', salon: s.id }).catch(() => { });
+    modal(`${img('epees', 'grande-ic')}<h1 class="lil">Match en direct</h1>
+      <p>${codeAmi ? 'Invitation envoyée. ' : ''}Code du match :</p><div class="code-salon lil">${s.id}</div>
+      <p class="petit">${codeAmi ? 'Ton ami la voit dans son onglet Amis.' : 'Ton ami touche « Rejoindre » dans son onglet Amis et tape ce code.'}</p>
+      <p class="petit attente-pts">En attente de l’autre joueur</p>
+      <div class="btns"><button class="btn sec" id="dAnn">Annuler</button></div>`, () => { $('#dAnn').onclick = () => { quitterDirect(); fermerModal(); }; });
+    const t0 = Date.now();
+    while (DIRECT && DIRECT.actif && !DIRECT.adv) {
+      await sleep(POLL_MS);
+      if (!DIRECT) return;
+      try { const r = await apiLire('salon', { id: s.id }); if (r.salon && r.salon.invite) DIRECT.adv = r.salon.invite; } catch (e) { }
+      if (Date.now() - t0 > 20 * 60000) { quitterDirect(); fermerModal(); return toast('Personne n’a rejoint le match'); }
+    }
+    if (DIRECT && DIRECT.adv) { fermerModal(); demarrerDirect(); }
+  } catch (e) { toast(e.message); }
+}
+function rejoindreDirectCode() {
+  modal(`${img('epees', 'grande-ic')}<h1 class="lil">Rejoindre un match</h1><input id="dCode" class="zone-txt code-j" maxlength="4" autocapitalize="characters" placeholder="CODE"><p class="petit" id="dMsg"></p>
+    <div class="btns"><button class="btn" id="dOk">Rejoindre</button><button class="btn sec" id="dNon">Annuler</button></div>`, () => {
+    $('#dOk').onclick = () => rejoindreDirect($('#dCode').value, m => ($('#dMsg').textContent = m));
+    $('#dNon').onclick = fermerModal;
+  });
+}
+async function rejoindreDirect(id, erreur) {
+  try {
+    const j = await apiEcrire('salonRejoindre', { id: (id || '').toUpperCase().trim(), joueur: moiJoueur() }), s = j.salon;
+    DIRECT = { id: s.id, role: 'invite', graine: s.graine, adv: s.hote, actif: true };
+    fermerModal(); demarrerDirect();
+  } catch (e) { erreur ? erreur(e.message) : toast(e.message); }
+}
+function quitterDirect() { if (DIRECT) DIRECT.actif = false; DIRECT = null; }
+function demarrerDirect() {
+  const a = DIRECT.adv, mets = Object.keys(METEOS);
+  const m = { comp: 'direct', opp: a.club, dom: DIRECT.role === 'hote', nom: MODES.direct.nom, tour: a.pseudo };
+  const opts = { direct: DIRECT, ami: { code: a.code, pseudo: a.pseudo }, inverse: DIRECT.role === 'invite', meteo: mets[Math.floor(tirageCommun(DIRECT.graine, 'meteo') * mets.length)], facteurFixe: 1 };
+  lancerAmical(m, opts, `Contre <b>${echap(a.pseudo)}</b>, en direct. Vous posez vos cartes en même temps : ton attaque contre sa défense, puis l’inverse. Sur une occasion, le tireur vise et le gardien plonge, chacun à la jauge.`);
+}
+// envoie mon coup puis attend celui de l'autre (même clé, autre rôle)
+async function echanger(cle, valeur) {
+  const D = S.direct, autre = D.role === 'hote' ? 'invite' : 'hote';
+  await apiEcrire('salonCoup', { id: D.id, cle: `${cle}:${D.role}`, valeur }).catch(() => { });
+  const t0 = Date.now(); let relance = false;
+  for (;;) {
+    if (!S || S.direct !== D || !D.actif) throw new Error('quitté');
+    try { const r = await apiLire('salon', { id: D.id }); if (!r.salon) throw new Error('Le salon a expiré.'); const v = r.salon.coups[`${cle}:${autre}`]; if (v) return v;
+      if (!r.salon.coups[`${cle}:${D.role}`] && !relance) { relance = true; apiEcrire('salonCoup', { id: D.id, cle: `${cle}:${D.role}`, valeur }).catch(() => { }); }
+    } catch (e) { if (/expiré/.test(e.message)) throw e; }
+    if (Date.now() - t0 > PATIENCE_MS && !S.patience) { S.patience = true; afficherPatience(); }
+    await sleep(POLL_MS);
+  }
+}
+function afficherPatience() {
+  const bt = $('#actions'); if (!bt) return;
+  bt.innerHTML = `<button class="btn sec" id="bAband">${echap(S.ami.pseudo)} ne répond plus : arrêter</button>`;
+  $('#bAband').onclick = () => { quitterDirect(); S = null; hub('amis'); };
+}
+// temps fort : mon total contre le sien
+async function attendreDuel(r) {
+  S.phase = 'attente'; zoneAction();
+  const moi = { total: r.total, sur: S.actif && S.actif.cible !== 1 ? S.actif.cible : 1, combo: r.combo.nom };
+  const lui = await echanger('tf' + S.tf, moi);
+  S.patience = false;
+  const att = enAttaque(), d = att ? issueDuel(moi, lui) : issueDuel(lui, moi);
+  S.cible = att ? d.d : d.a; S.duelAdv = lui;
+  return att ? { but: 'but', occasion: 'occasion', stoppe: 'rate' }[d.issue] : { but: 'butAdverse', occasion: 'tirAdverse', stoppe: 'stoppe' }[d.issue];
+}
+// occasion : ma frappe ou mon plongeon contre le sien
+async function attendreTir(moiTire, coup) {
+  S.phase = 'attenteTir'; zoneAction();
+  const lui = await echanger('tir' + S.tf, coup);
+  S.patience = false;
+  const tir = moiTire ? coup : lui, gardien = moiTire ? lui : coup;
+  const R = duelTir(tir, gardien, tirageCommun(S.direct.graine, 'tir' + S.tf));
+  return { tir, gardien, R };
+}
 
 document.documentElement.style.setProperty('--feu', `url(${IMG.feu})`);
 // Appli installable seulement sur le site du jeu (GitHub Pages), pas dans l'aperçu claude.ai

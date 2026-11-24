@@ -52,11 +52,26 @@ Chaque téléphone reçoit un code joueur (8 caractères). La sauvegarde part qu
 
 Note : dans l'aperçu claude.ai, le cloud peut être bloqué. Il fonctionne depuis GitHub Pages.
 
+## Jouer entre amis (onglet Amis)
+
+Il faut la sauvegarde automatique. Chaque joueur a un **code ami** (le même que son code joueur).
+
+- **Amis** : taper le code d'un ami pour l'ajouter.
+- **Ombre** : jouer contre l'équipe d'un ami, jouée par l'ordinateur avec ses habitudes (combos préférés, côtés de tir et de plongeon, lus dans son carnet de jeu). Pas besoin qu'il soit connecté.
+- **Défi de la semaine** : même adversaire et même tirage pour tout le monde, 3 essais, classement entre amis.
+- **Messages** : messages rapides ou texte court.
+- **Match en direct** : un joueur crée le match (ou invite un ami), l'autre le rejoint. Les deux posent leurs cartes en même temps ; sur une occasion, le tireur vise et le gardien plonge, chacun à la jauge.
+- **Fil d'actualité** : trophées, montées, résultats entre amis.
+
+Ces matchs ne touchent pas la carrière (seulement quelques pièces).
+
+**Mettre à jour le script Google** (à faire à chaque changement de `apps-script/Code.gs`) : script.google.com, ouvrir le projet, remplacer tout le code par le nouveau, enregistrer, puis **Déployer > Gérer les déploiements > crayon > Version : Nouvelle version > Déployer**. L'adresse ne change pas.
+
 ## Gestes courants
 
 - **Modifier le jeu** : changer les fichiers dans `src/`, puis `python3 build.py`, puis envoyer `src/` et `docs/`.
 - **À chaque mise en ligne** : augmenter la version dans `pwa/sw.js` (`carton-plein-v14` devient `v15`), sinon les téléphones gardent l'ancien jeu.
-- **Vérifier** : `node tests/regles.js` (règles), `node tests/equilibre.js` (difficulté sur 6 saisons, environ une minute), `node tests/profondeur.js` (le meilleur coup n'est pas juste les 4 plus fortes cartes). Robots d'écran (Playwright) : `python3 tests/robots/audit.py 390 844`, `tour14.py`, `tuto.py`, `tir.py`, `sauvegarde.py`, `cloud.py` (deux téléphones, faux script Google).
+- **Vérifier** : `node tests/regles.js` (règles), `node tests/equilibre.js` (difficulté sur 6 saisons, environ une minute), `node tests/profondeur.js` (le meilleur coup n'est pas juste les 4 plus fortes cartes). Robots d'écran (Playwright) : `python3 tests/robots/audit.py 390 844`, `tour14.py`, `tuto.py`, `tir.py`, `sauvegarde.py`, `cloud.py` (deux téléphones, faux script Google), `social.py` (deux téléphones : amis, messages, ombre, défi, direct). `node tests/social.js` vérifie les règles des matchs entre amis et le vrai script Google (exécuté dans Node par `tests/serveur.js`).
 - **Nouvelle saison réelle** : mettre à jour les listes de clubs dans `src/monde/clubs.js` (`DONNEES_LIGUES`) et augmenter la version de migration dans `src/moteur/carriere.js` si les anciennes carrières doivent repartir sur les nouvelles ligues.
 
 ## En cas d'alerte

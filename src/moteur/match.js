@@ -6,14 +6,16 @@ const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.15, r: 0.32 };
 let S = null;
 const NB_TF = 6, CHANGEMENTS = 3;
 const aStar = id => S && S.stars.includes(id);
-function nouveauMatch(m, auto) {
+function nouveauMatch(m, auto, opts) {
   m = m || prochainMatch(); const oppId = m.opp;
+  if (opts && opts.graine != null) fixerGraine(opts.graine);
   const cp = m.comp !== 'ligue' ? C.coupes[m.comp] : null;
   S = { auto: !!auto, opp: oppId, comp: m.comp, info: m, cup: cp ? { k: cp.k, tour: cp.tour } : null, eq: { p: clubPar(C.club), ia: clubPar(oppId) }, dom: m.dom, stars: [...C.stars],
     pioche: melanger(C.cartes.map(c => ({ ...c, val: valeurCarte(c) }))), defausse: [], main: [], sel: [], score: { p: 0, ia: 0 }, tf: 0,
     changements: CHANGEMENTS + (C.stars.includes('prepa') ? 1 : 0), phase: 'choix', attente: effetsVides(), actif: effetsVides(), histo: [], buteurs: [], defi: pick(DEFIS).id, evts: [], stats: { butsCombos: [], trios: 0, cartons: 0, but1mt: false, consigneUtile: false, meilleur: 0, meilleurCombo: '', arrets: 0 } };
   S.style = S.eq.ia.style;
   S.meteo = C.meteoProchaine || pick(Object.keys(METEOS));
+  if (opts) { Object.assign(S, opts); if (opts.style) S.style = opts.style; if (opts.meteo) S.meteo = opts.meteo; }
   piocher();
   preparerTF();
 }
@@ -36,7 +38,7 @@ function piocher() {
     S.main.push(S.pioche.pop());
   }
 }
-const enAttaque = () => S.tf % 2 === 0;
+const enAttaque = () => (S.tf % 2 === 0) !== !!S.inverse;
 // =====================================================================
 // CARTES ADVERSES : l'ordinateur annonce ce qu'il joue avant ton choix
 // =====================================================================
@@ -62,7 +64,7 @@ const PREF_STYLE = {
 function choisirCartesAdv() {
   const att = enAttaque(), cote = att ? 'att' : 'def';
   // combien de cartes : selon la division et la compétition
-  const eur = S.comp === 'eur', d = C.div;
+  const eur = S.comp === 'eur' || S.comp === 'defi', d = S.comp === 'ombre' ? 2 : C.div;
   let n = eur ? 2 : d === 1 ? (hasard() < 0.35 ? 2 : 1) : d === 2 ? 1 : (hasard() < 0.6 ? 1 : 0);
   if (S.type && S.type !== 'normal') n = Math.min(n, 1);
   if (S.tuto === 2) n = 1;
@@ -89,7 +91,7 @@ function preparerTF() {
     if (S.type === 'cf') m *= 0.85;
     S.cible = Math.round(m); S.intention = null;
   } else {
-    const pool = st === 'possession' ? ['tiki', 'unedeux', 'contre', 'unedeux', 'ct'] : st === 'aerien' ? ['ct', 'ct', 'debord', 'ct', 'contre'] : ['unedeux', 'contre', 'solo', 'ct', 'tiki', 'debord', 'percee'];
+    const pool = S.ombre && S.ombre.intentions ? [pickPoids(S.ombre.intentions)] : st === 'possession' ? ['tiki', 'unedeux', 'contre', 'unedeux', 'ct'] : st === 'aerien' ? ['ct', 'ct', 'debord', 'ct', 'contre'] : ['unedeux', 'contre', 'solo', 'ct', 'tiki', 'debord', 'percee'];
     S.intention = pick(pool);
     let m = (100 - i * 10 + rnd(17) - 8) * f;
     if (st === 'feu') m *= 1.1; if (st === 'bloc') m *= 0.9; if (st === 'contre') m *= 1.15;
@@ -97,7 +99,7 @@ function preparerTF() {
   }
   if (S.actif.cible !== 1) S.cible = Math.round(S.cible * S.actif.cible);
   if (S.rougeAdv) S.cible = Math.round(S.cible * 0.85);
-  S.adv = S.type === 'penalty' || S.tuto === 1 ? [] : choisirCartesAdv();
+  S.adv = S.type === 'penalty' || S.tuto === 1 || S.comp === 'direct' ? [] : choisirCartesAdv();
   S.advAnnulee = null;
   if (aStar('anticipe') && S.adv.length) { const mi = S.tf < NB_TF / 2 ? 1 : 2; S.strat = S.strat || {}; if (!S.strat[mi]) { S.strat[mi] = true; S.advAnnulee = S.adv.shift(); } }
   S.adv.forEach(k => { if (CARTES_ADV[k].cible) S.cible = Math.round(S.cible * CARTES_ADV[k].cible); });

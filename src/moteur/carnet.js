@@ -3,9 +3,10 @@
 // =====================================================================
 // Léger : des compteurs cumulés et un résumé des 40 derniers matchs, rangés dans la sauvegarde.
 const carnetVide = () => ({ matchs: 0, tf: 0, efficacite: 0, combos: {}, trios: 0, cartons: 0, consignes: {}, cartesJouees: 0,
-  tirs: { vert: 0, orange: 0, rouge: 0, buts: 0 }, plongeons: { vert: 0, orange: 0, rouge: 0, bonCote: 0, arrets: 0 }, issues: {}, derniers: [] });
+  tirsCol: { G: 0, C: 0, D: 0 }, plongeonsCol: { G: 0, C: 0, D: 0 }, tirs: { vert: 0, jaune: 0, rouge: 0, buts: 0 }, plongeons: { vert: 0, jaune: 0, rouge: 0, bonCote: 0, arrets: 0 }, issues: {}, derniers: [] });
 // au moment où le joueur valide ses cartes, avant qu'elles quittent la main
 function noterChoix(r) {
+  if (S && S.comp === 'defi') S.defiPts += ptsTempsFort(r);
   if (!S || S.tuto) return;
   let eff = 1; try { const best = meilleurCoup(true).total; if (best > 0) eff = Math.min(1, r.total / best); } catch (e) { }
   S.carnet = S.carnet || { tf: [], tirs: [], plongeons: [] };
@@ -25,8 +26,9 @@ function verserCarnet(gp, gc) {
     if (t.coul === 3) K.trios++; if (t.coul === 4) K.cartons++;
     t.cons.forEach(c => (K.consignes[c] = (K.consignes[c] || 0) + 1));
   });
-  m.tirs.forEach(t => { K.tirs[t.q]++; if (t.marque) K.tirs.buts++; });
-  m.plongeons.forEach(t => { K.plongeons[t.q]++; if (t.bonCote) K.plongeons.bonCote++; if (t.arret) K.plongeons.arrets++; });
+  K.tirsCol = K.tirsCol || { G: 0, C: 0, D: 0 }; K.plongeonsCol = K.plongeonsCol || { G: 0, C: 0, D: 0 };
+  m.tirs.forEach(t => { K.tirs[t.q] = (K.tirs[t.q] || 0) + 1; if (t.marque) K.tirs.buts++; if (t.col) K.tirsCol[t.col]++; });
+  m.plongeons.forEach(t => { K.plongeons[t.q] = (K.plongeons[t.q] || 0) + 1; if (t.bonCote) K.plongeons.bonCote++; if (t.arret) K.plongeons.arrets++; if (t.col) K.plongeonsCol[t.col]++; });
   const eff = m.tf.length ? m.tf.reduce((a, t) => a + t.eff, 0) / m.tf.length : 1;
   K.derniers.unshift({ s: C.saison, j: C.journee, div: C.div, comp: S.comp || 'ligue', opp: S.opp, score: `${gp}-${gc}`, mur: Math.round(facteurAdversaire(S.opp) * 100) / 100,
     eff: Math.round(eff * 100) / 100, tf: m.tf.map(t => `${t.att ? 'A' : 'D'}:${t.combo || '-'}${t.coul ? '+c' + t.coul : ''}${t.cons.length ? '+' + t.cons.join('/') : ''}=${t.total}(${Math.round(t.eff * 100)}%)`).join(' '),

@@ -10,11 +10,14 @@
     "moteur/objectifs.js",
     "moteur/tirs.js",
     "moteur/carnet.js",
+    "moteur/modes.js",
     "ecrans/tuto.js",
     "sync.js"
   ],
   "ecrans": [
     "ecrans/club.js",
-    "ecrans/match.js"
+    "ecrans/match.js",
+    "ecrans/social.js",
+    "ecrans/direct.js"
   ]
 }

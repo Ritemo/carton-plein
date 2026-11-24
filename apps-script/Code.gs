@@ -1,53 +1,134 @@
 /**
- * Carton Plein : sauvegarde cloud des carrières (Google Apps Script).
- * Un fichier JSON par joueur dans un dossier Drive « Carton Plein - sauvegardes ».
+ * Carton Plein : serveur gratuit (Google Apps Script).
+ *   - sauvegarde des carrières : un fichier JSON par joueur dans le dossier Drive « Carton Plein - sauvegardes »
+ *   - social : profils publics, fil d'actualité, messages, défi de la semaine (fichier social.json)
+ *   - matchs en direct : salons temporaires en cache (6 heures)
  *
- * Déploiement : Déployer > Nouveau déploiement > Application Web
- *   - Exécuter en tant que : moi
- *   - Accès : tout le monde
- * Copier l'adresse /exec et la coller dans le jeu (menu > Sauvegarde).
+ * Première installation : Déployer > Nouveau déploiement > Application Web
+ *   (Exécuter en tant que : moi ; Accès : tout le monde), puis coller l'adresse /exec dans src/config.js.
+ * Mise à jour du code : Déployer > Gérer les déploiements > crayon > Version : « Nouvelle version » > Déployer.
+ *   L'adresse ne change pas.
  */
+const VERSION_SERVEUR = 2;
 const DOSSIER = 'Carton Plein - sauvegardes';
+const MAX_FIL = 300, MAX_MSG = 500, DUREE_SALON = 6 * 3600;
 
+// ---------- outils ----------
 function dossier_() {
   const it = DriveApp.getFoldersByName(DOSSIER);
   return it.hasNext() ? it.next() : DriveApp.createFolder(DOSSIER);
 }
-function fichier_(code) {
-  if (!/^[A-Z0-9]{6,12}$/.test(code || '')) throw new Error('code invalide');
-  const it = dossier_().getFilesByName(code + '.json');
-  return it.hasNext() ? it.next() : null;
+function codeOk_(code) { if (!/^[A-Z0-9]{6,12}$/.test(code || '')) throw new Error('code invalide'); return code; }
+function fichier_(nom) { const it = dossier_().getFilesByName(nom); return it.hasNext() ? it.next() : null; }
+function lireJSON_(nom, defaut) { const f = fichier_(nom); return f ? JSON.parse(f.getBlob().getDataAsString()) : defaut; }
+function ecrireJSON_(nom, o) {
+  const f = fichier_(nom), txt = JSON.stringify(o);
+  if (f) f.setContent(txt); else dossier_().createFile(nom, txt, MimeType.PLAIN_TEXT);
 }
-function json_(o) {
-  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function propre_(t, n) { return String(t || '').replace(/[<>]/g, '').slice(0, n || 200); }
+function verrou_(f) { const v = LockService.getScriptLock(); v.waitLock(15000); try { return f(); } finally { v.releaseLock(); } }
+function social_() { return lireJSON_('social.json', { fil: [], messages: [], defis: {} }); }
+function sauverSocial_(s) {
+  if (s.fil.length > MAX_FIL) s.fil = s.fil.slice(-MAX_FIL);
+  if (s.messages.length > MAX_MSG) s.messages = s.messages.slice(-MAX_MSG);
+  const semaines = Object.keys(s.defis).sort(); while (semaines.length > 8) delete s.defis[semaines.shift()];
+  ecrireJSON_('social.json', s);
 }
+
+// Profil public tiré de la sauvegarde : de quoi afficher un ami et jouer contre son ombre
+function profilPublic_(code) {
+  const o = lireJSON_(codeOk_(code) + '.json', null);
+  if (!o || !o.data) return null;
+  const d = o.data;
+  return {
+    code: code, pseudo: o.pseudo || '', maj: o.maj, club: d.club, pays: d.pays, div: d.div, saison: d.saison, ansD1: d.ansD1 || 0,
+    trophees: (d.trophees || []).length, cartes: d.cartes, stars: d.stars, niveaux: d.niveaux, carnet: d.carnet || null
+  };
+}
+
+// ---------- salons (matchs en direct) ----------
+const cache_ = () => CacheService.getScriptCache();
+function lireSalon_(id) { const t = cache_().get('salon_' + id); return t ? JSON.parse(t) : null; }
+function ecrireSalon_(s) { cache_().put('salon_' + s.id, JSON.stringify(s), DUREE_SALON); }
+function nouvelId_() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let id; do { id = ''; for (let i = 0; i < 4; i++) id += a[Math.floor(Math.random() * a.length)]; } while (lireSalon_(id)); return id; }
+
+// ---------- lecture ----------
 function doGet(e) {
   try {
     const p = e.parameter || {};
-    if (p.action === 'load') {
-      const f = fichier_(p.code);
-      if (!f) return json_({ ok: true, data: null });
-      const o = JSON.parse(f.getBlob().getDataAsString());
-      return json_({ ok: true, maj: o.maj, pseudo: o.pseudo, data: o.data });
+    switch (p.action) {
+      case 'load': {
+        const o = lireJSON_(codeOk_(p.code) + '.json', null);
+        return json_(o ? { ok: true, maj: o.maj, pseudo: o.pseudo, amis: o.amis || [], data: o.data } : { ok: true, data: null });
+      }
+      case 'profil': return json_({ ok: true, profil: profilPublic_(p.code) });
+      case 'social': {
+        // fil et messages qui concernent ce joueur et ses amis, plus le défi de la semaine
+        const moi = codeOk_(p.code), amis = (p.amis || '').split(',').filter(Boolean), cercle = [moi].concat(amis);
+        const s = social_(), depuis = +p.depuis || 0;
+        return json_({
+          ok: true, v: VERSION_SERVEUR,
+          fil: s.fil.filter(x => cercle.indexOf(x.de) >= 0 || x.pour === moi).slice(-40),
+          messages: s.messages.filter(m => (m.a === moi || m.de === moi) && m.t > depuis),
+          defi: p.semaine ? (s.defis[p.semaine] || {}) : {}
+        });
+      }
+      case 'salon': return json_({ ok: true, salon: lireSalon_(p.id) });
+      default: return json_({ ok: true, info: 'Carton Plein : serveur', v: VERSION_SERVEUR });
     }
-    return json_({ ok: true, info: 'Carton Plein : sauvegarde cloud' });
   } catch (err) { return json_({ ok: false, erreur: String(err) }); }
 }
+
+// ---------- écriture ----------
 function doPost(e) {
-  const verrou = LockService.getScriptLock();
-  verrou.waitLock(10000);
   try {
     const o = JSON.parse(e.postData.contents);
-    if (o.action !== 'save') return json_({ ok: false, erreur: 'action inconnue' });
-    const f = fichier_(o.code), contenu = JSON.stringify({ maj: o.maj, pseudo: o.pseudo || '', data: o.data });
-    if (contenu.length > 5e6) return json_({ ok: false, erreur: 'sauvegarde trop grosse' });
-    if (f) {
-      // ne jamais écraser une sauvegarde plus récente (deux téléphones)
-      const avant = JSON.parse(f.getBlob().getDataAsString());
-      if ((avant.maj || 0) > (o.maj || 0)) return json_({ ok: false, erreur: 'plus récente sur le cloud', maj: avant.maj });
-      f.setContent(contenu);
-    } else dossier_().createFile(o.code + '.json', contenu, MimeType.PLAIN_TEXT);
-    return json_({ ok: true });
+    switch (o.action) {
+      case 'save': return verrou_(() => {
+        codeOk_(o.code);
+        const avant = lireJSON_(o.code + '.json', null);
+        // ne jamais écraser une sauvegarde plus récente (deux téléphones)
+        if (avant && (avant.maj || 0) > (o.maj || 0)) return json_({ ok: false, erreur: 'plus récente sur le cloud', maj: avant.maj });
+        const contenu = { maj: o.maj, pseudo: propre_(o.pseudo, 16), amis: (o.amis || []).slice(0, 30), data: o.data };
+        if (JSON.stringify(contenu).length > 5e6) return json_({ ok: false, erreur: 'sauvegarde trop grosse' });
+        ecrireJSON_(o.code + '.json', contenu);
+        return json_({ ok: true });
+      });
+      case 'publier': return verrou_(() => {
+        const s = social_();
+        s.fil.push({ de: codeOk_(o.code), pseudo: propre_(o.pseudo, 16), type: propre_(o.type, 20), txt: propre_(o.txt, 160), pour: o.pour || null, t: Date.now() });
+        sauverSocial_(s); return json_({ ok: true });
+      });
+      case 'message': return verrou_(() => {
+        const s = social_();
+        s.messages.push({ de: codeOk_(o.de), a: codeOk_(o.a), pseudo: propre_(o.pseudo, 16), txt: propre_(o.txt, 200), type: o.type === 'invite' ? 'invite' : 'texte', salon: o.salon || null, t: Date.now() });
+        sauverSocial_(s); return json_({ ok: true });
+      });
+      case 'defi': return verrou_(() => {
+        const s = social_(), sem = propre_(o.semaine, 10), code = codeOk_(o.code);
+        const L = s.defis[sem] = s.defis[sem] || {}, avant = L[code];
+        const essais = (avant ? avant.essais : 0) + 1;
+        L[code] = { pseudo: propre_(o.pseudo, 16), club: propre_(o.club, 40), score: Math.max(avant ? avant.score : 0, +o.score || 0), essais: essais, t: Date.now() };
+        sauverSocial_(s); return json_({ ok: true, defi: L });
+      });
+      case 'salonCree': return verrou_(() => {
+        const s = { id: nouvelId_(), graine: Math.floor(Math.random() * 4294967295), hote: o.joueur, invite: null, coups: {}, t: Date.now() };
+        ecrireSalon_(s); return json_({ ok: true, salon: s });
+      });
+      case 'salonRejoindre': return verrou_(() => {
+        const s = lireSalon_(propre_(o.id, 4).toUpperCase());
+        if (!s) return json_({ ok: false, erreur: 'Salon introuvable ou expiré.' });
+        if (s.invite && s.invite.code !== o.joueur.code) return json_({ ok: false, erreur: 'Ce match a déjà deux joueurs.' });
+        if (s.hote.code === o.joueur.code) return json_({ ok: false, erreur: 'C’est ton propre salon.' });
+        s.invite = o.joueur; ecrireSalon_(s); return json_({ ok: true, salon: s });
+      });
+      case 'salonCoup': return verrou_(() => {
+        const s = lireSalon_(o.id);
+        if (!s) return json_({ ok: false, erreur: 'Salon expiré.' });
+        s.coups[propre_(o.cle, 30)] = o.valeur; s.t = Date.now(); ecrireSalon_(s); return json_({ ok: true, salon: s });
+      });
+      default: return json_({ ok: false, erreur: 'action inconnue' });
+    }
   } catch (err) { return json_({ ok: false, erreur: String(err) }); }
-  finally { verrou.releaseLock(); }
 }

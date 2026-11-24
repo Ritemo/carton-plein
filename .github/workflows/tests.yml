@@ -13,7 +13,7 @@ jobs:
           python3 build.py
           git diff --exit-code docs || (echo "docs/ n'est pas à jour : lancer python3 build.py puis renvoyer" && exit 1)
       - name: Règles du jeu
-        run: node tests/regles.js
+        run: node tests/regles.js && node tests/social.js
       - name: Alerte
         if: failure() && env.SUJET != ''
         env: { SUJET: "${{ secrets.NTFY_SUJET }}" }

@@ -3,8 +3,8 @@
 // =====================================================================
 // Jauge de frappe : vert = avantage au tireur, orange = avantage au gardien, rouge = raté.
 // Le gardien adverse choisit un côté au hasard.
-function issueFrappe(zone, qualite) {
-  const gk = pick(['G', 'C', 'D']), devine = zone[1] === gk, lucarne = zone === 'HG' || zone === 'HD';
+function issueFrappe(zone, qualite, gkChoix) {
+  const gk = gkChoix || pick(['G', 'C', 'D']), devine = zone[1] === gk, lucarne = zone === 'HG' || zone === 'HD';
   const marque = qualite === 'vert' ? (!devine || hasard() < (lucarne ? 0.5 : 0.3)) : qualite === 'jaune' ? (!devine && hasard() < 0.7) : false;
   return { gk, devine, marque, horsCadre: qualite === 'rouge' };
 }

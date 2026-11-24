@@ -198,10 +198,11 @@ function hub(onglet) {
   $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
-  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compétitions']];
+  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
   $('#nav').innerHTML = tabs.map(([id, ic, nom]) => `<button class="onglet ${id === ONGLET ? 'on' : ''}" data-o="${id}">${img(ic)}<span>${nom}</span>${id === 'formation' && pret ? '<i class="pastille-notif"></i>' : ''}</button>`).join('');
   $('#nav').querySelectorAll('.onglet').forEach(b => (b.onclick = () => { Son.clic(); hub(b.dataset.o); }));
-  ({ vestiaire, effectif, formation, boutique, competitions })[ONGLET]();
+  ({ vestiaire, effectif, formation, boutique, competitions, amis })[ONGLET]();
+  if (urlCloud() && ONGLET !== 'amis') chargerSocial().then(majPastilleAmis).catch(() => { });
 }
 function maj() { sauver(); hub(ONGLET); }
 function barreHaut() {

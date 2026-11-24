@@ -14,7 +14,7 @@ function afficherMatch() {
   if (!S || S.auto) return;
   if (S.type === 'penalty' && S.phase === 'choix') S.phase = 'penalty';
   const att = enAttaque(), sp = TF_SPECIAUX[S.type];
-  document.body.className = 'match' + (!att ? ' defense' : '');
+  document.body.className = 'match' + (!att ? ' defense' : '') + (S.comp === 'direct' ? ' direct' : '');
   vue(`<div class="match-vue">
     <div id="tableau"><div class="club">${blason(S.eq.p, 36)}<span class="lil">${S.eq.p.court}</span></div><div class="centre-sc"><div class="sc lil">${S.score.p}<span>-</span>${S.score.ia}</div><div class="mn lil ${S.comp !== 'ligue' ? 'cp' : ''}">${S.phase === 'fin' ? 'TERMINÉ' : S.minute + "'"}</div></div><div class="club d">${blason(S.eq.ia, 36)}<span class="lil">${S.eq.ia.court}</span></div></div>
     <div class="ligne-frise"><div class="frise">${Array.from({ length: NB_TF }, (_, i) => { const h = S.histo[i]; return `<span class="${i % 2 === 0 ? 'a' : 'd'} ${i === S.tf ? 'now' : ''} ${i < S.tf ? 'fait' : ''}">${h === 'p' ? img('ballon') : h === 'ia' ? '<b>✕</b>' : h === 'var' ? '<b>VAR</b>' : ''}</span>`; }).join('')}</div>
@@ -33,7 +33,8 @@ function afficherMatch() {
   const adv = $('#adv');
   const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
-  if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
+  if (S.comp === 'direct') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${echap(S.ami.pseudo)} ${att ? 'défend' : 'attaque'}</div><div class="sous">${att ? 'Il pose ses défenseurs en même temps que toi. Fais le plus gros total.' : 'Il prépare son attaque en même temps. Défends fort.'}</div></div><div class="cible ${att ? 'mur' : 'danger'} lil">${img(att ? 'mur' : 'feu', 'fond')}<span>?</span></div>`;
+  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
   else if (S.type === 'penalty') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">Penalty pour ${S.eq.ia.nom}</div><div class="sous">Faute dans la surface !</div></div><div class="cible danger lil">${img('filet', 'fond')}</div>`;
   else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
   zoneAction();
@@ -45,8 +46,8 @@ function zoneAction() {
   if (pz) { const t = S.phase === 'choix' && !S.modeChange && !S.tuto ? indice() : ''; pz.innerHTML = t ? `<span class="pz-i">${img('ampoule', 'ic')}${t}</span>` : ''; }
   bt.innerHTML = '';
   const ph = S.phase;
-  if (ph === 'choix' || ph === 'calcul') {
-    const enCalc = ph === 'calcul', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
+  if (ph === 'choix' || ph === 'calcul' || ph === 'attente') {
+    const enCalc = ph === 'calcul' || ph === 'attente', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
     const pts = enCalc ? S.anim.pts : r.somme, mult = enCalc ? (S.anim.mult == null ? r.combo.mult : S.anim.mult) : r.mult, tot = enCalc ? (S.anim.total == null ? '?' : S.anim.total) : r.total;
     const sb = seuilBut();
     ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
@@ -55,6 +56,7 @@ function zoneAction() {
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
       ${!vide && r.futur && r.futur.length ? `<div class="futur">${img('sablier', 'mini-ic')} Au prochain temps fort : ${r.futur.map(t => TYPES[t].txt.replace('Ton prochain temps fort ', '').replace(' au prochain temps fort', '').replace('Prochain objectif adverse', 'objectif adverse')).join(' · ')}</div>` : ''}`;
     majJauge(enCalc ? (S.anim.total == null ? 0 : S.anim.total) : (vide ? 0 : r.total));
+    if (ph === 'attente') bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} choisit ses cartes…</div>`;
     if (ph === 'choix') {
       if (S.modeChange) bt.innerHTML = `<button class="btn" id="bChg">Valider l'échange</button><button class="btn sec" id="bAnn">Annuler</button>`;
       else if (!S.sel.length && !S.changements && !S.main.some(c => TYPES[c.t].att === att || TYPES[c.t].consigne)) bt.innerHTML = `<button class="btn gros" id="bPasse">${att ? 'Pas de carte d’attaque : passer' : 'Pas de défenseur : subir'}</button>`;
@@ -62,7 +64,7 @@ function zoneAction() {
     }
   } else if (ph === 'occasion' || ph === 'tirAdverse' || ph === 'penalty') {
     const moi = ph === 'occasion', pen = ph === 'penalty', gk = S.main.find(c => c.t === 'gardien');
-    if (!moi && !S.tendance) S.tendance = { col: pick(['G', 'C', 'D']) };
+    if (!moi && !S.tendance) S.tendance = { col: (S.ombre && S.ombre.tirs && pickPoids(S.ombre.tirs)) || pick(['G', 'C', 'D']) };
     const T = S.tirEtat || (S.tirEtat = { zone: null, col: null });
     const jauge = (vert, jaune) => `<div class="jauge-tir" id="jt"><i class="z-rouge"></i><i class="z-jaune" style="left:${50 - jaune / 2}%;width:${jaune}%"></i><i class="z-vert" style="left:${50 - vert / 2}%;width:${vert}%"></i><b id="curseur"></b></div>`;
     ac.innerHTML = `<div class="ruban lil">${moi ? (T.zone ? 'Frappe au bon moment !' : 'Occasion ! Vise une zone') : T.col ? 'Plonge au bon moment !' : pen ? 'Penalty ! Choisis ton côté' : S.eq.ia.nom + ' frappe ! Choisis ton côté'}</div>
@@ -70,9 +72,14 @@ function zoneAction() {
       ${moi ? (T.zone ? `${jauge(T.vert, T.jaune)}<div class="sous-cage"><b class="c-vert">Vert</b> : avantage au tireur. <b class="c-orange">Orange</b> : avantage au gardien. <b class="c-rouge">Rouge</b> : à côté.</div>`
         : `<div class="sous-cage">${S.res.total} sur ${S.cible} : le gardien va plonger d'un côté. ${S.res.valides.some(c => c.t === 'frappe') ? 'Ta Frappe élargit la zone verte.' : ''}</div>`)
         : T.col ? `${jauge(T.vert, T.jaune)}<div class="sous-cage"><b class="c-vert">Vert</b> : arrêt assuré si tu es du bon côté. <b class="c-orange">Orange</b> : tu peux le toucher. <b class="c-rouge">Rouge</b> : plongeon raté.</div>`
+        : S.comp === 'direct' ? `<div class="sous-cage">${echap(S.ami.pseudo)} vise en même temps que toi. À toi de deviner.</div>`
         : `<div class="sous-cage">${img('ampoule', 'mini-ic')} Le tireur frappe souvent <b>${cote(S.tendance.col)}</b>.${pen && gk ? `<br><label class="sacrif"><input type="checkbox" id="sacr"> Sacrifier ton Gardien (${gk.val}) pour couvrir 2 côtés</label>` : ''}</div>`}`;
     if (moi && T.zone) { bt.innerHTML = `<button class="btn gros" id="bFrappe">Frapper !</button>`; lancerJauge(); }
     if (!moi && T.col) { bt.innerHTML = `<button class="btn gros" id="bPlonge">Plonger !</button>`; lancerJauge(); }
+  } else if (ph === 'attenteTir') {
+    const T = S.tirEtat || {}, moi = enAttaque();
+    ac.innerHTML = `<div class="ruban lil">${moi ? 'Frappe partie…' : 'Plongeon choisi…'}</div>${sceneTir({ moi, choix: false, zone: T.zone, col: T.col, gardienEq: moi ? S.eq.ia : S.eq.p })}`;
+    bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} ${moi ? 'plonge' : 'frappe'}…</div>`;
   } else if (ph === 'tirRes') {
     const t = S.tir;
     const titre = t.moiTire ? (t.marque ? 'BUT !' : t.horsCadre ? 'À côté !' : 'Arrêté !') : (t.marque ? 'But adverse' : 'Arrêt !');
@@ -88,11 +95,15 @@ function zoneAction() {
       stoppe: ['bouclier', 'Action stoppée !', `${r.combo.nom} à ${r.total} contre ${S.cible}.`, 'gagne'],
       butAdverse: ['feu', 'But adverse', `Ta défense (${r.total}) n'a rien pu faire contre ${S.cible}.`, 'perd']
     }[ph] || ['ballon', '', '', ''];
+    if (S.comp === 'direct' && S.duelAdv) {
+      const c = S.duelAdv.combo;
+      R[2] = { but: `${r.total} contre sa défense (${S.cible}) : ça passe !`, rate: `Sa défense (${S.cible}) a tout bloqué.`, stoppe: `Ta défense (${r.total}) stoppe son ${c} (${S.cible}).`, butAdverse: `Son ${c} (${S.cible}) passe ta défense (${r.total}).` }[ph] || R[2];
+    }
     ac.innerHTML = `<div class="resultat ${R[3]}">${img(R[0], 'icone-res')}<div><div class="titre-res lil">${R[1]}</div><div class="sous">${R[2]}</div></div></div>`;
     bt.innerHTML = `<button class="btn gros" id="bSuite">${S.tf === NB_TF - 1 ? 'Coup de sifflet final' : 'Temps fort suivant'}</button>`;
   }
   // main
-  const visible = ph === 'choix' || ph === 'calcul';
+  const visible = ph === 'choix' || ph === 'calcul' || ph === 'attente';
   const plusDe = c => {
     if (!att && ((LECTURE[c.t] && LECTURE[c.t].includes(S.intention)) || (c.sp && SPECIAUX[c.t].lectureTout))) return '×2';
     if (att && S.type === 'corner' && (c.t === 'centre' || c.t === 'tete')) return '×2';
@@ -130,7 +141,7 @@ function majJauge(total) {
   const pct = Math.min(100, total / (S.cible * 1.3) * 100);
   g.style.transform = `scaleX(${pct / 100})`;
   const sb = enAttaque() ? seuilBut() : 1;
-  g.className = 'rempli ' + (total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
+  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
 }
 function majCalcul() {
   const r = S.anim.r, p = document.querySelector('.boite-pts .n'), m = document.querySelector('.boite-mult .n'), t = document.querySelector('.total .n');
@@ -175,7 +186,9 @@ async function jouer(force) {
   secouer(); etoilesActives(r).forEach(allumer);
   await sleep(320);
   await compter(r.total);
-  const t = issue(r);
+  let t;
+  if (S.comp === 'direct') { try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
+  else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
   await sleep(650);
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
@@ -233,12 +246,20 @@ function lancerJauge() {
   if (REDUIT) { JAUGE.pos = 0.5; cur.style.transform = 'translateX(50cqw)'; return; }
   JAUGE.raf = requestAnimationFrame(pas);
 }
-function frapper() {
+async function frapper() {
   if (S.phase !== 'occasion' || !S.tirEtat || !S.tirEtat.zone || !JAUGE) return;
   cancelAnimationFrame(JAUGE.raf);
   const T = S.tirEtat, z = T.zone, qualite = qualiteJauge(JAUGE.pos, T.vert, T.jaune);
-  const { gk, devine, marque } = issueFrappe(z, qualite);
-  noterTir(true, qualite, { marque });
+  if (S.comp === 'direct') {
+    let d; try { d = await attendreTir(true, { zone: z, q: qualite }); } catch (e) { if (S) { toast('Match arrêté'); quitterDirect(); S = null; hub('amis'); } return; }
+    const g = d.gardien, nom = echap(S.ami.pseudo);
+    noterTir(true, qualite, { marque: d.R.marque, col: z[1] });
+    const t = { moiTire: true, zone: z, gk: g.col, marque: d.R.marque, horsCadre: d.R.horsCadre, qualite, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
+    t.texte = t.horsCadre ? `Frappe ratée : le ballon passe ${z[0] === 'H' ? 'au-dessus' : 'à côté'}.` : !d.R.bonCote ? `Tir ${nomZone(z)}, ${nom} a plongé ${cote(g.col)}.` : d.R.marque ? `${nom} avait deviné, mais ta frappe passe !` : `${nom} a deviné et sorti le ballon.`;
+    return resoudreTir(t);
+  }
+  const { gk, devine, marque } = issueFrappe(z, qualite, S.ombre && S.ombre.plongeons ? pickPoids(S.ombre.plongeons) : null);
+  noterTir(true, qualite, { marque, col: z[1] });
   const t = { moiTire: true, zone: z, gk, marque, horsCadre: qualite === 'rouge', qualite, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = t.horsCadre ? `Frappe ratée : le ballon passe ${z[0] === 'H' ? 'au-dessus' : 'à côté'}.` : marque ? (devine ? 'Le gardien était du bon côté, mais la frappe parfaite le bat !' : `Tir ${nomZone(z)}, le gardien plonge ${cote(gk)}.`) : devine ? `Le gardien a deviné : tir ${nomZone(z)}.` : 'Frappe trop molle : le gardien a le temps de revenir.';
   resoudreTir(t);
@@ -250,14 +271,22 @@ function plonger(col) {
   S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: 18 + (gant ? 8 : 0), jaune: 62 };
   zoneAction();
 }
-function plongeon() {
+async function plongeon() {
   if ((S.phase !== 'tirAdverse' && S.phase !== 'penalty') || !S.tirEtat || !S.tirEtat.col || !JAUGE) return;
   cancelAnimationFrame(JAUGE.raf);
   const T = S.tirEtat, col = T.col, pen = S.phase === 'penalty', qualite = qualiteJauge(JAUGE.pos, T.vert, T.jaune);
+  if (S.comp === 'direct') {
+    let d; try { d = await attendreTir(false, { col, q: qualite }); } catch (e) { if (S) { toast('Match arrêté'); quitterDirect(); S = null; hub('amis'); } return; }
+    const z = d.tir.zone, nom = echap(S.ami.pseudo);
+    noterTir(false, qualite, { bonCote: d.R.bonCote, arret: !d.R.marque, col });
+    const t = { moiTire: false, zone: z, gk: col, couverts: [col], marque: d.R.marque, horsCadre: d.R.horsCadre, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
+    t.texte = d.R.horsCadre ? `${nom} rate sa frappe : à côté !` : !d.R.bonCote ? `${nom} tire ${nomZone(z)}, tu as plongé ${cote(col)}.` : d.R.marque ? 'Bon côté, mais la frappe était trop belle.' : `Arrêt ! Tu as lu le tir de ${nom}.`;
+    return resoudreTir(t, false);
+  }
   const couverts = [col];
   if (T.sac) { const g = S.main.find(x => x.t === 'gardien'); if (g) retirerJouees([g]); couverts.push(col === 'C' ? pick(['G', 'D']) : 'C'); }
   const { zone: z, colTir, bonCote, arret } = issuePlongeon(qualite, couverts, S.tendance.col);
-  noterTir(false, qualite, { bonCote, arret });
+  noterTir(false, qualite, { bonCote, arret, col });
   const t = { moiTire: false, zone: z, gk: arret || qualite !== 'rouge' ? col : 'C', couverts, marque: !arret, rebond: [POS_ZONE[z][0] + (colTir === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = arret ? `${qualite === 'vert' ? 'Plongeon parfait' : 'Du bout des gants'} : tir ${nomZone(z)}${T.sac ? ', ton sacrifice a payé' : ''}.`
     : !bonCote ? `Tir ${nomZone(z)}, tu as plongé ${cote(col)}.` : qualite === 'rouge' ? 'Bon côté, mais plongeon raté : trop tôt ou trop tard.' : 'Bon côté, mais le ballon passe sous les gants.';
@@ -287,9 +316,9 @@ function resoudreTir(t, pen) {
 }
 function rafraichirTableau() { const s = document.querySelector('#tableau .sc'); if (s) s.innerHTML = `${S.score.p}<span>-</span>${S.score.ia}`; }
 function suiteTF() {
-  Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
+  Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.duelAdv = null; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
   const go = () => { piocher(); preparerTF(); };
-  const e = tirerEvenement(); if (!e) return go();
+  const e = S.comp === 'defi' || S.comp === 'direct' ? null : tirerEvenement(); if (!e) return go();
   const T = TEXTE_EVT[e.id](e);
   modal(`${img(T.ic, 'grande-ic')}<h1 class="lil">${T.titre}</h1><p>${T.txt}</p><div class="btns col">${T.a ? `<button class="btn" id="eA">${T.a}</button><button class="btn sec" id="eB">${T.b}</button>` : `<button class="btn" id="eA">Continuer</button>`}</div>`, () => {
     $('#eA').onclick = () => { appliquerEvenement(e, 'a'); fermerModal(); go(); };
@@ -331,6 +360,7 @@ function finMatch() {
   $('#flash').style.display = 'none';
   S.phase = 'fin'; Son.sifflet(true); Son.tension(0);
   if (S.tuto) return finTuto();
+  if (estAmical()) return ecranFinAmical();
   if (S.comp !== 'ligue' && S.score.p === S.score.ia) return seanceTab();
   ecranFin(null);
 }
@@ -367,7 +397,7 @@ function ecranFin(tab) {
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
-  if (cp && cp.gagne) setTimeout(confettis, 1300);
+  if (cp && cp.gagne) { setTimeout(confettis, 1300); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
   const cpTxt = cp ? `<div class="cp-res ${cp.gagne ? 'or' : ''}">${img(cp.gagne ? 'trophee' : COUPES[cp.k].ic, 'mini-ic')} ${cp.gagne ? `Vainqueur de la ${cp.nom} ! Prime : ${cp.prime} pièces` : cp.qualifie ? `${cp.nom} : direction la ${cp.suivant.toLowerCase()}` : `${cp.nom} : fin de l'aventure en ${cp.tourJoue.toLowerCase()}`}</div>` : '';
   vue(`<div class="page fin-match">
     <div class="fm-titre lil ${gagne ? 'v' : gp < gc || (cp && !cp.qualifie) ? 'd' : 'n'}">${titre}</div>
@@ -417,6 +447,8 @@ function finDeSaison() {
     <div class="gain lil">${img('piece')} +${{ montee: 80, champion: 150, europe: 100, maintien: 40, descente: 30 }[res.issue]} pièces de prime</div>
     <button class="btn gros" id="bSaison">${res.offres && res.offres.length ? `Voir les offres (${res.offres.length})` : `Saison ${C.saison} en ${nomDiv(C.div)}`}</button></div>`, 'plein scene-fond');
   if (['montee', 'champion', 'europe'].includes(res.issue)) { Son.jingle(); confettis(); }
+  const fil = { montee: `monte en ${nomDiv(res.apres)} avec ${cl.nom}`, champion: `est champion ${P.de} avec ${cl.nom} !`, europe: `qualifie ${cl.nom} pour l’Europe`, descente: `descend avec ${cl.nom}, la revanche se prépare` }[res.issue];
+  if (fil) publier(fil, 'saison');
   $('#bSaison').onclick = () => { Son.clic(); if (res.offres && res.offres.length) choixOffres(); else hub('vestiaire'); };
 }
 function choixOffres() {

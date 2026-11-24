@@ -15,7 +15,7 @@ const TF_SPECIAUX = {
   penalty: { nom: 'Penalty adverse', txt: 'Choisis ton côté. Sacrifie un Gardien pour couvrir deux côtés.' }
 };
 function tirerTypeTF(tf) {
-  if (tf === 0 || (S && S.tuto === 1)) return 'normal';
+  if (tf === 0 || (S && (S.tuto === 1 || S.comp === 'direct'))) return 'normal';
   if (tf % 2 === 0) { const x = rnd(100); return x < 58 ? 'normal' : x < 74 ? 'cf' : x < 90 ? 'corner' : 'eclair'; }
   return rnd(100) < 7 ? 'penalty' : 'normal';
 }

@@ -149,6 +149,7 @@ function appliquerRecompense(o) {
 
 // ---------- Facteur de difficulté ----------
 function facteurAdversaire(id) {
+  if (S && S.facteurFixe) return S.facteurFixe;
   let base = DIFF[C.div];
   if (S && S.cup) { const K = COUPES[S.cup.k]; base = S.cup.k === 'nat' ? DIFF[C.divisions[id]] * K.diff[S.cup.tour] : K.diff[S.cup.tour]; }
   return base * (0.88 + 0.3 * clubPar(id).force) * (1 + DIFF.j * C.journee * 9 / Math.max(9, C.calendrier.length)) * (1 + DIFF.s * Math.max(0, C.saison - 1)) * (1 + DIFF.r * (C.ansD1 || 0));
