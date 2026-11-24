@@ -44,7 +44,9 @@ Sans cloud, la carrière reste sur le téléphone. Le menu **Sauvegarde** permet
 1. Aller sur script.google.com, **Nouveau projet**, coller le contenu de `apps-script/Code.gs`, enregistrer.
 2. **Déployer > Nouveau déploiement > Application Web** : *Exécuter en tant que* = moi, *Accès* = tout le monde. Autoriser.
 3. Copier l'adresse qui finit par `/exec`.
-4. Dans le jeu : menu **Sauvegarde**, coller l'adresse, **Enregistrer l'adresse**.
+4. Coller cette adresse dans `src/config.js` (`const CLOUD_URL = '…';`), puis `python3 build.py` et renvoyer `src/` et `docs/`. Tous les téléphones sauvegardent alors automatiquement, sans réglage. (Pour un essai sans reconstruire : menu **Sauvegarde > Réglage avancé**.)
+
+**Nouveau téléphone** : installer le jeu depuis l'adresse GitHub Pages. Pour une nouvelle carrière, rien à faire. Pour reprendre une carrière existante : sur l'accueil, *J'ai déjà une carrière sur un autre téléphone*, puis saisir le code joueur (affiché dans menu > Sauvegarde de l'ancien téléphone).
 
 Chaque téléphone reçoit un code joueur (8 caractères). La sauvegarde part quelques secondes après chaque action. Au lancement, si le cloud a une carrière plus récente, le jeu propose de la reprendre. Le script refuse d'écraser une sauvegarde plus récente. Les fichiers sont dans le dossier Drive *Carton Plein - sauvegardes*.
 
@@ -54,7 +56,7 @@ Note : dans l'aperçu claude.ai, le cloud peut être bloqué. Il fonctionne depu
 
 - **Modifier le jeu** : changer les fichiers dans `src/`, puis `python3 build.py`, puis envoyer `src/` et `docs/`.
 - **À chaque mise en ligne** : augmenter la version dans `pwa/sw.js` (`carton-plein-v14` devient `v15`), sinon les téléphones gardent l'ancien jeu.
-- **Vérifier** : `node tests/regles.js` (règles), `node tests/equilibre.js` (difficulté sur 6 saisons, environ une minute), `node tests/profondeur.js` (le meilleur coup n'est pas juste les 4 plus fortes cartes). Robots d'écran (Playwright) : `python3 tests/robots/audit.py 390 844`, `tour14.py`, `tuto.py`, `tir.py`, `sauvegarde.py`.
+- **Vérifier** : `node tests/regles.js` (règles), `node tests/equilibre.js` (difficulté sur 6 saisons, environ une minute), `node tests/profondeur.js` (le meilleur coup n'est pas juste les 4 plus fortes cartes). Robots d'écran (Playwright) : `python3 tests/robots/audit.py 390 844`, `tour14.py`, `tuto.py`, `tir.py`, `sauvegarde.py`, `cloud.py` (deux téléphones, faux script Google).
 - **Nouvelle saison réelle** : mettre à jour les listes de clubs dans `src/monde/clubs.js` (`DONNEES_LIGUES`) et augmenter la version de migration dans `src/moteur/carriere.js` si les anciennes carrières doivent repartir sur les nouvelles ligues.
 
 ## En cas d'alerte

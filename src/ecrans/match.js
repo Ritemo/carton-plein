@@ -42,7 +42,7 @@ function zoneAction() {
   const att = enAttaque(), ac = $('#action'), bt = $('#actions'), mn = $('#main');
   const tb = $('#tuto-b'); if (tb) tb.innerHTML = bulleTuto();
   const pz = $('#possibles');
-  if (pz) { const ps = S.phase === 'choix' && !S.modeChange ? possibilites() : []; pz.innerHTML = ps.length ? `<span class="pz-t">Possible :</span>${ps.map((o, i) => `<button class="pz ${o.type}" data-pz="${i}" ${o.k ? `style="--k:${COULEURS[o.k].hex}"` : ''}>${o.lib}</button>`).join('')}` : ''; pz.querySelectorAll('[data-pz]').forEach(b => (b.onclick = () => { Son.clic(); S.sel = ps[+b.dataset.pz].sel.slice(); zoneAction(); })); }
+  if (pz) { const t = S.phase === 'choix' && !S.modeChange && !S.tuto ? indice() : ''; pz.innerHTML = t ? `<span class="pz-i">${img('ampoule', 'ic')}${t}</span>` : ''; }
   bt.innerHTML = '';
   const ph = S.phase;
   if (ph === 'choix' || ph === 'calcul') {

@@ -9,7 +9,17 @@ function profil() {
   if (!p) { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; p = { code: Array.from({ length: 8 }, () => a[Math.floor(Math.random() * a.length)]).join(''), pseudo: '' }; try { localStorage.setItem(CLE_PROFIL, JSON.stringify(p)); } catch (e) { } }
   return p;
 }
-const urlCloud = () => { try { return localStorage.getItem(CLE_CLOUD) || ''; } catch (e) { return ''; } };
+const urlCloud = () => { let u = null; try { u = localStorage.getItem(CLE_CLOUD); } catch (e) { } return u !== null ? u : CLOUD_URL; };
+const majProfil = p => { try { localStorage.setItem(CLE_PROFIL, JSON.stringify(p)); } catch (e) { } };
+// Reprendre une carrière depuis un autre téléphone : le code est adopté, ce téléphone continue la même sauvegarde
+async function reprendreAvecCode(code) {
+  code = (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length < 6) throw new Error('Le code joueur fait 8 caractères.');
+  let j; try { j = await syncLire(code); } catch (e) { throw new Error('Pas de connexion au cloud.'); }
+  if (!j || !j.data) throw new Error('Aucune carrière avec ce code.');
+  const p = profil(); p.code = code; if (j.pseudo) p.pseudo = j.pseudo; majProfil(p);
+  C = migrer(j.data); sauver(); return C;
+}
 // --- copie manuelle : un texte à garder dans ses notes ou à coller sur un autre téléphone
 function exporterSauvegarde() { return 'CP1:' + btoa(unescape(encodeURIComponent(JSON.stringify(C)))); }
 function importerSauvegarde(txt) {

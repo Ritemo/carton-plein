@@ -201,6 +201,34 @@ function possibilites() {
   S.feinteActive = false;
   return out.sort((a, b) => b.total - a.total).slice(0, 4);
 }
+// Indice : une piste, jamais la solution. Sans sélection, on dit seulement combien de combinaisons
+// la main cache. Avec une sélection, on signale la combinaison à une carte près, si cette carte est en main.
+function indice() {
+  const att = enAttaque(), max = maxJouees(), sel = S.sel;
+  const main = S.main.filter(c => TYPES[c.t].att === att && !sel.includes(c));
+  if (!sel.length) {
+    const n = possibilites().length;
+    return n ? `Ta main cache ${n} combinaison${n > 1 ? 's' : ''}` : 'Pas de combinaison dans ta main : joue tes meilleures cartes';
+  }
+  if (sel.length >= max) return '';
+  const r = calcul(sel), compte = {};
+  sel.forEach(c => { const sp = c.sp && SPECIAUX[c.t].compte; Object.entries(sp || { [c.t]: 1 }).forEach(([t, q]) => (compte[t] = (compte[t] || 0) + q)); });
+  if (att) {
+    const proches = COMBOS_ATT.filter(k => k.mult > (r.combo ? r.combo.mult : 1) && k.id !== 'simple').map(k => {
+      const manque = Object.entries(k.req).flatMap(([t, q]) => Array(Math.max(0, q - (compte[t] || 0))).fill(t));
+      const deja = Object.keys(k.req).some(t => compte[t]);
+      return { k, manque, deja };
+    }).filter(o => o.deja && o.manque.length === 1 && sel.length + 1 <= max && main.some(c => c.t === o.manque[0]));
+    if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
+  } else if (sel.length === 3 && max >= 4 && r.combo && r.combo.id !== 'muraille') {
+    const g = sel.some(c => c.t === 'gardien');
+    if (!g && main.some(c => c.t === 'gardien')) return 'Un Gardien derrière ces trois-là : Muraille';
+  }
+  const parK = {}; sel.forEach(c => { const k = couleurCarte(c); parK[k] = (parK[k] || 0) + 1; });
+  const [k, n] = Object.entries(parK).sort((a, b) => b[1] - a[1])[0];
+  if (n >= 2 && n < 4 && sel.length < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
+  return '';
+}
 function valeurCoup(r) {
   const ratio = r.total / S.cible, seuil = enAttaque() ? seuilBut() : 1;
   let v = (ratio >= seuil ? 2000 : ratio >= 0.7 ? 900 + ratio * 400 : ratio * 800);

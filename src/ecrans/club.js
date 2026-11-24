@@ -4,6 +4,7 @@
 const IMG = __IMG__;
 const $ = s => document.querySelector(s);
 const img = (k, cls) => (IMG[k] ? `<img class="${cls || ''}" src="${IMG[k]}" alt="" draggable="false">` : '');
+const on = (id, f) => { const b = document.getElementById(id); if (b) b.onclick = f; };
 const REDUIT = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ICT = { passe: 'passe', course: 'course', dribble: 'dribble', centre: 'centre', frappe: 'frappe', tete: 'tete', tacle: 'tacle', marquage: 'marquage', interception: 'interception', gardien: 'gardien', contrepied: 'epees', pressing: 'biceps', appel: 'fusee', relance: 'eclair', genie: 'ampoule', grinta: 'etincelles', feinte: 'magicien' };
@@ -86,20 +87,33 @@ function vue(html, cls) { const v = $('#vue'); v.className = cls || ''; v.innerH
 // =====================================================================
 // ACCUEIL ET DÉBUT DE CARRIÈRE
 // =====================================================================
+function ecranRecup() {
+  modal(`${img('bouclier', 'grande-ic')}<h1 class="lil">Retrouver ma carrière</h1>
+    <p class="petit">Sur l’ancien téléphone : menu > Sauvegarde, le code joueur est affiché (8 caractères).</p>
+    <input id="rCode" class="zone-txt code-j" maxlength="10" autocapitalize="characters" placeholder="CODE JOUEUR">
+    <p class="petit" id="rMsg"></p>
+    <div class="btns"><button class="btn" id="rOk">Reprendre</button><button class="btn sec" id="rNon">Annuler</button></div>`, () => {
+    $('#rOk').onclick = async () => { $('#rMsg').textContent = 'Recherche…'; try { await reprendreAvecCode($('#rCode').value); fermerModal(); toast('Carrière retrouvée'); hub('vestiaire'); } catch (e) { $('#rMsg').textContent = e.message; } };
+    $('#rNon').onclick = fermerModal;
+  });
+}
 function ecranSauvegarde() {
   const p = profil(), url = urlCloud();
   modal(`${img('bouclier', 'grande-ic')}<h1 class="lil">Sauvegarde</h1>
     <p class="petit">Ta carrière est enregistrée sur ce téléphone. Pour ne rien perdre, ou pour continuer sur un autre appareil :</p>
     <div class="btns col"><button class="btn" id="sCop">Copier ma sauvegarde</button><button class="btn sec" id="sCol">Coller une sauvegarde</button></div>
     <textarea id="sTxt" class="zone-txt" placeholder="Colle ici une sauvegarde (texte commençant par CP1:)" hidden></textarea>
-    <h2 class="lil">Sauvegarde automatique (cloud)</h2>
-    <p class="petit">${url ? `Activée · code joueur <b>${p.code}</b> · état : ${SYNC_ETAT}` : 'Pas encore activée. Colle l’adresse de ton script Google pour l’activer.'}</p>
-    <input id="sUrl" class="zone-txt" placeholder="https://script.google.com/macros/s/…/exec" value="${url}">
-    <div class="btns"><button class="btn sec" id="sUrlOk">Enregistrer l’adresse</button><button class="btn" id="sFer">Fermer</button></div>`, () => {
+    <h2 class="lil">Sauvegarde automatique</h2>
+    ${url ? `<p class="petit">Activée. Ton code joueur : <b class="code-j">${p.code}</b> · ${SYNC_ETAT === 'ok' ? 'à jour' : SYNC_ETAT === 'hors-ligne' ? 'hors ligne, réessaie plus tard' : SYNC_ETAT === 'erreur' ? 'erreur' : 'en attente'}<br>Note ce code : il permet de retrouver ta carrière sur un autre téléphone.</p>
+    <input id="sNom" class="zone-txt" maxlength="16" placeholder="Ton prénom" value="${p.pseudo || ''}">
+    <button class="lien" id="sAutre">Reprendre une carrière avec un autre code</button>` : '<p class="petit">Pas encore activée.</p>'}
+    <details class="avance"><summary>Réglage avancé</summary><input id="sUrl" class="zone-txt" placeholder="https://script.google.com/macros/s/…/exec" value="${url}"><button class="btn sec" id="sUrlOk">Enregistrer l’adresse</button></details>
+    <div class="btns"><button class="btn" id="sFer">Fermer</button></div>`, () => {
     $('#sCop').onclick = async () => { const t = exporterSauvegarde(); try { await navigator.clipboard.writeText(t); toast('Sauvegarde copiée : colle-la dans tes notes'); } catch (e) { const z = $('#sTxt'); z.hidden = false; z.value = t; z.select(); toast('Copie ce texte'); } };
     $('#sCol').onclick = () => { const z = $('#sTxt'); if (z.hidden) { z.hidden = false; z.value = ''; z.focus(); return; } try { importerSauvegarde(z.value); fermerModal(); toast('Sauvegarde reprise'); hub('vestiaire'); } catch (e) { toast(e.message); } };
     $('#sUrlOk').onclick = () => { try { localStorage.setItem(CLE_CLOUD, $('#sUrl').value.trim()); } catch (e) { } toast($('#sUrl').value.trim() ? 'Sauvegarde cloud activée' : 'Sauvegarde cloud désactivée'); syncPlanifier(); fermerModal(); };
-    $('#sFer').onclick = fermerModal;
+    $('#sFer').onclick = () => { const n = $('#sNom'); if (n && n.value.trim() !== (p.pseudo || '')) { p.pseudo = n.value.trim(); majProfil(p); syncPlanifier(); } fermerModal(); };
+    on('sAutre', ecranRecup);
   });
 }
 function accueil() {
@@ -113,9 +127,11 @@ function accueil() {
     ${sv ? `<button class="bloc-continuer" id="bCont">${blason(cl, 44)}<span><b class="lil">Continuer</b><small>${cl.nom} · Saison ${sv.saison} · ${nomDiv(sv.div, sv.pays)} · journée ${Math.min(sv.journee + 1, (sv.calendrier || []).length || 9)}</small></span><span class="fleche lil">›</span></button>` : ''}
     <button class="btn gros" id="bNew">${sv ? 'Nouvelle carrière' : 'Commencer ma carrière'}</button>
     <button class="btn sec" id="bRegles">Comment jouer</button>
+    ${!sv && urlCloud() ? '<button class="lien" id="bRecup">J’ai déjà une carrière sur un autre téléphone</button>' : ''}
     <p class="credit">Émoticônes 3D Fluent Emoji (Microsoft, licence MIT). Noms de clubs réels, écussons et joueurs inventés.</p>
   </div>`, 'plein');
   const go = () => { Son.init(); Son.clic(); };
+  on('bRecup', () => { go(); ecranRecup(); });
   if (sv) $('#bCont').onclick = () => { go(); C = sv; hub('vestiaire'); };
   $('#bNew').onclick = () => { go(); if (sv) modal(`<h1 class="lil">Nouvelle carrière ?</h1><p>Ta carrière avec ${cl.nom} sera effacée.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); else demarrerNouvelle(); };
   $('#bRegles').onclick = () => { go(); regles(); };
