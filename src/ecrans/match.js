@@ -54,7 +54,7 @@ function zoneAction() {
     const enCalc = ph === 'calcul' || ph === 'attente', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
     const pts = enCalc ? S.anim.pts : r.somme, mult = enCalc ? (S.anim.mult == null ? r.combo.mult : S.anim.mult) : r.mult, tot = enCalc ? (S.anim.total == null ? '?' : S.anim.total) : r.total;
     const sb = seuilBut();
-    ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
+    ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}${S.main.some(c => estConsigne(c.t)) ? ' + 1 consigne' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
       <div class="calcul"><div class="boite-pts"><span class="n lil">${vide ? 0 : pts}</span><small>points</small></div><div class="fois lil">×</div><div class="boite-mult"><span class="n lil">${vide ? 1 : fmt(mult)}</span><small>combo</small></div><div class="fois lil">=</div><div class="total"><span class="n lil">${vide ? 0 : tot}</span></div></div>
       <div class="jauge"><div class="rempli"></div>${S.fourchette ? (() => { const R = refCible(), s = att ? sb : 1, a = S.fourchette[0] * s / R / 1.3 * 100, b = S.fourchette[1] * s / R / 1.3 * 100; return `<span class="repere occ" style="left:${0.7 * S.fourchette[0] / R / 1.3 * 100}%"></span><span class="bande" style="left:${a}%;width:${b - a}%"></span>`; })() : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(S.fourchette ? (att ? sb : 1) * S.fourchette[1] / refCible() : (att ? sb : 1)) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
@@ -163,8 +163,8 @@ function choisirCarte(c) {
   Son.init(); Son.clic();
   const i = S.sel.findIndex(x => x.id === c.id);
   if (i >= 0) S.sel.splice(i, 1);
-  else if (S.modeChange || S.sel.length < maxJouees()) S.sel.push(c);
-  else { toast(`${maxJouees()} carte${maxJouees() > 1 ? 's' : ''} maximum ici`); return; }
+  else if (S.modeChange || peutAjouter(S.sel, c)) S.sel.push(c);
+  else { toast(estConsigne(c.t) ? 'Une seule consigne par temps fort' : `${maxJouees()} carte${maxJouees() > 1 ? 's' : ''} maximum ici, plus 1 consigne`); return; }
   zoneAction();
 }
 function changer() {

@@ -821,8 +821,9 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if (!c.objectifs) { const av2 = C; C = c; try { nouveauxObjectifs(); } catch (e) {} C = av2; }
   if ((c.v || 1) < 5) { if (!c.cartes.some(x => x.t === 'feinte')) c.cartes.push(nouvelleCarte('feinte', 7, 'rare')); c.nouveautesV13 = true; }
   if ((c.v || 1) < 6) c.nouveautesV16 = true;
+  if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
   C = av;
-  c.v = 6; return c;
+  c.v = 7; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -937,7 +938,7 @@ function appliquerRecompense(o) {
 
 // ---------- Facteur de difficulté ----------
 // niveau Facile : murs et attaques adverses plus bas (sauf défi de la semaine et direct, pour rester comparables)
-const NIVEAUX = { facile: 0.85, normal: 1.15 };
+const NIVEAUX = { facile: 0.85, normal: 1.19 };
 function facteurAdversaire(id) {
   const f = facteurBrut(id), fixe = S && (S.comp === 'defi' || S.comp === 'direct');
   return fixe ? f : f * (NIVEAUX[reglages().difficulte] || 1);
@@ -1091,6 +1092,9 @@ function nouveauMatch(m, auto, opts) {
 }
 const tailleMain = () => 8 + (aStar('supersub') && S.tf >= NB_TF / 2 ? 1 : 0);
 const effetsVides = () => ({ mult: 1, cible: 1, cartes: 0, src: [] });
+// une consigne par temps fort, en plus des cartes d'action (elle ne prend pas de place)
+const nbActions = sel => sel.filter(c => !estConsigne(c.t)).length;
+const peutAjouter = (sel, c) => estConsigne(c.t) ? !sel.some(x => estConsigne(x.t)) : nbActions(sel) < maxJouees();
 const maxJouees = () => (S && S.type && TF_SPECIAUX[S.type] && TF_SPECIAUX[S.type].max ? TF_SPECIAUX[S.type].max : (aStar('chef') ? 5 : 4) + ((S && S.actif && S.actif.cartes) || 0) - (S && S.adv && S.adv.some(k => CARTES_ADV[k].cartes) ? 1 : 0));
 // une consigne jouée agit sur le temps fort suivant (contre-pied, pressing, appel) ou tout de suite (relance)
 function activerConsignes(sel) {
@@ -1283,11 +1287,11 @@ function indice() {
   if (!reglages().indices) return '';
   const att = enAttaque(), max = maxJouees(), sel = S.sel;
   const main = S.main.filter(c => TYPES[c.t].att === att && !sel.includes(c));
-  if (!sel.length) {
+  if (!nbActions(sel)) {
     const n = possibilites().length;
     return n ? `Ta main cache ${n} combinaison${n > 1 ? 's' : ''}` : 'Pas de combinaison dans ta main : joue tes meilleures cartes';
   }
-  if (sel.length >= max) return '';
+  if (nbActions(sel) >= max) return '';
   const r = calcul(sel), compte = {};
   sel.forEach(c => { const sp = c.sp && SPECIAUX[c.t].compte; Object.entries(sp || { [c.t]: 1 }).forEach(([t, q]) => (compte[t] = (compte[t] || 0) + q)); });
   if (att) {
@@ -1295,21 +1299,21 @@ function indice() {
       const manque = Object.entries(k.req).flatMap(([t, q]) => Array(Math.max(0, q - (compte[t] || 0))).fill(t));
       const deja = Object.keys(k.req).some(t => compte[t]);
       return { k, manque, deja };
-    }).filter(o => o.deja && o.manque.length === 1 && sel.length + 1 <= max && main.some(c => c.t === o.manque[0]));
+    }).filter(o => o.deja && o.manque.length === 1 && nbActions(sel) + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
   } else if (r.combo && r.combo.id !== 'muraille') {
     const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
     const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
     const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
-    if (r.valides.length >= 2 && besoin <= 2 && sel.length + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
+    if (r.valides.length >= 2 && besoin <= 2 && nbActions(sel) + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
       return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
-  if (att && manqueL.length === 1 && r.valides.length >= 2 && sel.length < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
+  if (att && manqueL.length === 1 && r.valides.length >= 2 && nbActions(sel) < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
   const parK = {}; sel.forEach(c => { const k = couleurCarte(c); parK[k] = (parK[k] || 0) + 1; });
   const [k, n] = Object.entries(parK).sort((a, b) => b[1] - a[1])[0];
-  if (n >= 2 && n < 4 && sel.length < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
+  if (n >= 2 && n < 4 && nbActions(sel) < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
   return '';
 }
 function valeurCoup(r) {
@@ -1323,8 +1327,9 @@ function meilleurCoup(brut) {
   const att = enAttaque(), m = S.main.filter(c => TYPES[c.t].att === att || estConsigne(c.t)), n = m.length, max = maxJouees();
   let best = [], bt = -1, btot = 0;
   for (let mask = 1; mask < (1 << n); mask++) {
-    let k = 0; for (let x = mask; x; x >>= 1) k += x & 1; if (k > max) continue;
-    const sel = m.filter((_, i) => mask & (1 << i)), r = calcul(sel), v = brut ? r.total : valeurCoup(r);
+    const sel = m.filter((_, i) => mask & (1 << i));
+    if (nbActions(sel) > max || sel.length - nbActions(sel) > 1) continue;
+    const r = calcul(sel), v = brut ? r.total : valeurCoup(r);
     if (v > bt) { bt = v; best = sel; btot = r.total; }
   }
   return { sel: best, total: btot };
@@ -2345,7 +2350,7 @@ function bulleTuto() {
     if (ph === 'choix' && S.adv && S.adv.length) une('adv', 'L’adversaire joue des <b>cartes</b>, affichées sous son cadre. Contourne-les, ou joue ta <b>Feinte</b> (violette) pour les annuler.');
     else if (ph === 'choix' && att && (!vus.coul || vus.coul === S.tf + ph)) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2). La couleur vient du <b>joueur</b>, pas du type de carte : une Frappe peut être rouge ou bleue.');
     else if (ph === 'choix' && att) une('coll', 'Chaque joueur a une ligne, en bas de sa carte : <b>D</b> défense, <b>M</b> milieu, <b>A</b> attaque. Les trois lignes dans la même action = <b>Collectif</b> (+1 au combo).');
-    else if (ph === 'choix' && S.main.some(c => estConsigne(c.t))) une('cons', 'Les cartes violettes sont des <b>Consignes</b> : 0 point, mais un effet tout de suite ou au temps fort suivant.');
+    else if (ph === 'choix' && S.main.some(c => estConsigne(c.t))) une('cons', 'Les cartes violettes sont des <b>Consignes</b> : 0 point, mais un effet tout de suite ou au temps fort suivant. Tu peux en ajouter <b>une</b> à tes cartes, elle ne prend pas de place.');
   }
   return msgs.length ? `<div class="bulle-tuto">${img('dede', 'mini-ic')}<span>${msgs[0]}</span></div>` : '';
 }
@@ -2614,7 +2619,7 @@ function regles() {
     <div class="regles">
       <div>${img('passe')}<span>Un match, c'est <b>6 temps forts</b> : 3 attaques et 3 défenses.</span></div>
       <div>${img('gemme')}<span><b>Couleurs</b> : chaque joueur a une couleur (bandeau en bas de la carte). 3 cartes de la même couleur : <b>Trio</b>, +1 au combo. 4 : <b>Carton plein</b>, +2.</span></div>
-      <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Elles prennent une place dans l'action mais préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
+      <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Une par temps fort, <b>en plus</b> de tes cartes : elle ne prend pas de place. Elles agissent tout de suite ou préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
       <div>${img('etoile')}<span>Joue <b>jusqu'à 4 cartes</b>. Leurs points s'additionnent, la <b>combinaison</b> les multiplie.</span></div>
       <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>. Au niveau Normal, ils sont annoncés en <b>fourchette</b> : la vraie valeur se révèle après ton choix.</span></div>
       <div>${img('sablier')}<span>Après chaque temps fort, tu ne pioches que <b>3 cartes</b> (main pleine à la mi-temps). Tout donner maintenant, ou garder des cartes pour la suite ?</span></div>
@@ -2661,6 +2666,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV17 ? `Bonne nouvelle pour les consignes : tu peux en ajouter une à ton action, en plus de tes cartes. Plus besoin de sacrifier un temps fort pour préparer le suivant.`
       : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
       : C.migre ? `Le championnat a changé : on joue maintenant contre tous les vrais clubs de la division, en matchs aller. Ton paquet, tes stars et tes pièces sont intactes. On repart du début de saison.`
@@ -2690,7 +2696,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10 || C.nouveautesV16) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); lancerMatch(); };
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
@@ -2960,7 +2966,7 @@ function zoneAction() {
     const enCalc = ph === 'calcul' || ph === 'attente', r = enCalc ? S.anim.r : calcul(S.sel), vide = !S.sel.length && !enCalc;
     const pts = enCalc ? S.anim.pts : r.somme, mult = enCalc ? (S.anim.mult == null ? r.combo.mult : S.anim.mult) : r.mult, tot = enCalc ? (S.anim.total == null ? '?' : S.anim.total) : r.total;
     const sb = seuilBut();
-    ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
+    ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}${S.main.some(c => estConsigne(c.t)) ? ' + 1 consigne' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
       <div class="calcul"><div class="boite-pts"><span class="n lil">${vide ? 0 : pts}</span><small>points</small></div><div class="fois lil">×</div><div class="boite-mult"><span class="n lil">${vide ? 1 : fmt(mult)}</span><small>combo</small></div><div class="fois lil">=</div><div class="total"><span class="n lil">${vide ? 0 : tot}</span></div></div>
       <div class="jauge"><div class="rempli"></div>${S.fourchette ? (() => { const R = refCible(), s = att ? sb : 1, a = S.fourchette[0] * s / R / 1.3 * 100, b = S.fourchette[1] * s / R / 1.3 * 100; return `<span class="repere occ" style="left:${0.7 * S.fourchette[0] / R / 1.3 * 100}%"></span><span class="bande" style="left:${a}%;width:${b - a}%"></span>`; })() : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(S.fourchette ? (att ? sb : 1) * S.fourchette[1] / refCible() : (att ? sb : 1)) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
@@ -3069,8 +3075,8 @@ function choisirCarte(c) {
   Son.init(); Son.clic();
   const i = S.sel.findIndex(x => x.id === c.id);
   if (i >= 0) S.sel.splice(i, 1);
-  else if (S.modeChange || S.sel.length < maxJouees()) S.sel.push(c);
-  else { toast(`${maxJouees()} carte${maxJouees() > 1 ? 's' : ''} maximum ici`); return; }
+  else if (S.modeChange || peutAjouter(S.sel, c)) S.sel.push(c);
+  else { toast(estConsigne(c.t) ? 'Une seule consigne par temps fort' : `${maxJouees()} carte${maxJouees() > 1 ? 's' : ''} maximum ici, plus 1 consigne`); return; }
   zoneAction();
 }
 function changer() {

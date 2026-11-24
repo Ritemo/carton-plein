@@ -60,7 +60,7 @@ function bulleTuto() {
     if (ph === 'choix' && S.adv && S.adv.length) une('adv', 'L’adversaire joue des <b>cartes</b>, affichées sous son cadre. Contourne-les, ou joue ta <b>Feinte</b> (violette) pour les annuler.');
     else if (ph === 'choix' && att && (!vus.coul || vus.coul === S.tf + ph)) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2). La couleur vient du <b>joueur</b>, pas du type de carte : une Frappe peut être rouge ou bleue.');
     else if (ph === 'choix' && att) une('coll', 'Chaque joueur a une ligne, en bas de sa carte : <b>D</b> défense, <b>M</b> milieu, <b>A</b> attaque. Les trois lignes dans la même action = <b>Collectif</b> (+1 au combo).');
-    else if (ph === 'choix' && S.main.some(c => estConsigne(c.t))) une('cons', 'Les cartes violettes sont des <b>Consignes</b> : 0 point, mais un effet tout de suite ou au temps fort suivant.');
+    else if (ph === 'choix' && S.main.some(c => estConsigne(c.t))) une('cons', 'Les cartes violettes sont des <b>Consignes</b> : 0 point, mais un effet tout de suite ou au temps fort suivant. Tu peux en ajouter <b>une</b> à tes cartes, elle ne prend pas de place.');
   }
   return msgs.length ? `<div class="bulle-tuto">${img('dede', 'mini-ic')}<span>${msgs[0]}</span></div>` : '';
 }

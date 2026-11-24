@@ -21,6 +21,9 @@ function nouveauMatch(m, auto, opts) {
 }
 const tailleMain = () => 8 + (aStar('supersub') && S.tf >= NB_TF / 2 ? 1 : 0);
 const effetsVides = () => ({ mult: 1, cible: 1, cartes: 0, src: [] });
+// une consigne par temps fort, en plus des cartes d'action (elle ne prend pas de place)
+const nbActions = sel => sel.filter(c => !estConsigne(c.t)).length;
+const peutAjouter = (sel, c) => estConsigne(c.t) ? !sel.some(x => estConsigne(x.t)) : nbActions(sel) < maxJouees();
 const maxJouees = () => (S && S.type && TF_SPECIAUX[S.type] && TF_SPECIAUX[S.type].max ? TF_SPECIAUX[S.type].max : (aStar('chef') ? 5 : 4) + ((S && S.actif && S.actif.cartes) || 0) - (S && S.adv && S.adv.some(k => CARTES_ADV[k].cartes) ? 1 : 0));
 // une consigne jouée agit sur le temps fort suivant (contre-pied, pressing, appel) ou tout de suite (relance)
 function activerConsignes(sel) {
@@ -213,11 +216,11 @@ function indice() {
   if (!reglages().indices) return '';
   const att = enAttaque(), max = maxJouees(), sel = S.sel;
   const main = S.main.filter(c => TYPES[c.t].att === att && !sel.includes(c));
-  if (!sel.length) {
+  if (!nbActions(sel)) {
     const n = possibilites().length;
     return n ? `Ta main cache ${n} combinaison${n > 1 ? 's' : ''}` : 'Pas de combinaison dans ta main : joue tes meilleures cartes';
   }
-  if (sel.length >= max) return '';
+  if (nbActions(sel) >= max) return '';
   const r = calcul(sel), compte = {};
   sel.forEach(c => { const sp = c.sp && SPECIAUX[c.t].compte; Object.entries(sp || { [c.t]: 1 }).forEach(([t, q]) => (compte[t] = (compte[t] || 0) + q)); });
   if (att) {
@@ -225,21 +228,21 @@ function indice() {
       const manque = Object.entries(k.req).flatMap(([t, q]) => Array(Math.max(0, q - (compte[t] || 0))).fill(t));
       const deja = Object.keys(k.req).some(t => compte[t]);
       return { k, manque, deja };
-    }).filter(o => o.deja && o.manque.length === 1 && sel.length + 1 <= max && main.some(c => c.t === o.manque[0]));
+    }).filter(o => o.deja && o.manque.length === 1 && nbActions(sel) + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
   } else if (r.combo && r.combo.id !== 'muraille') {
     const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
     const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
     const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
-    if (r.valides.length >= 2 && besoin <= 2 && sel.length + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
+    if (r.valides.length >= 2 && besoin <= 2 && nbActions(sel) + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
       return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
-  if (att && manqueL.length === 1 && r.valides.length >= 2 && sel.length < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
+  if (att && manqueL.length === 1 && r.valides.length >= 2 && nbActions(sel) < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
   const parK = {}; sel.forEach(c => { const k = couleurCarte(c); parK[k] = (parK[k] || 0) + 1; });
   const [k, n] = Object.entries(parK).sort((a, b) => b[1] - a[1])[0];
-  if (n >= 2 && n < 4 && sel.length < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
+  if (n >= 2 && n < 4 && nbActions(sel) < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
   return '';
 }
 function valeurCoup(r) {
@@ -253,8 +256,9 @@ function meilleurCoup(brut) {
   const att = enAttaque(), m = S.main.filter(c => TYPES[c.t].att === att || estConsigne(c.t)), n = m.length, max = maxJouees();
   let best = [], bt = -1, btot = 0;
   for (let mask = 1; mask < (1 << n); mask++) {
-    let k = 0; for (let x = mask; x; x >>= 1) k += x & 1; if (k > max) continue;
-    const sel = m.filter((_, i) => mask & (1 << i)), r = calcul(sel), v = brut ? r.total : valeurCoup(r);
+    const sel = m.filter((_, i) => mask & (1 << i));
+    if (nbActions(sel) > max || sel.length - nbActions(sel) > 1) continue;
+    const r = calcul(sel), v = brut ? r.total : valeurCoup(r);
     if (v > bt) { bt = v; best = sel; btot = r.total; }
   }
   return { sel: best, total: btot };

@@ -187,7 +187,7 @@ function regles() {
     <div class="regles">
       <div>${img('passe')}<span>Un match, c'est <b>6 temps forts</b> : 3 attaques et 3 défenses.</span></div>
       <div>${img('gemme')}<span><b>Couleurs</b> : chaque joueur a une couleur (bandeau en bas de la carte). 3 cartes de la même couleur : <b>Trio</b>, +1 au combo. 4 : <b>Carton plein</b>, +2.</span></div>
-      <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Elles prennent une place dans l'action mais préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
+      <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Une par temps fort, <b>en plus</b> de tes cartes : elle ne prend pas de place. Elles agissent tout de suite ou préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
       <div>${img('etoile')}<span>Joue <b>jusqu'à 4 cartes</b>. Leurs points s'additionnent, la <b>combinaison</b> les multiplie.</span></div>
       <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>. Au niveau Normal, ils sont annoncés en <b>fourchette</b> : la vraie valeur se révèle après ton choix.</span></div>
       <div>${img('sablier')}<span>Après chaque temps fort, tu ne pioches que <b>3 cartes</b> (main pleine à la mi-temps). Tout donner maintenant, ou garder des cartes pour la suite ?</span></div>
@@ -234,6 +234,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV17 ? `Bonne nouvelle pour les consignes : tu peux en ajouter une à ton action, en plus de tes cartes. Plus besoin de sacrifier un temps fort pour préparer le suivant.`
       : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
       : C.migre ? `Le championnat a changé : on joue maintenant contre tous les vrais clubs de la division, en matchs aller. Ton paquet, tes stars et tes pièces sont intactes. On repart du début de saison.`
@@ -263,7 +264,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10 || C.nouveautesV16) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); lancerMatch(); };
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
