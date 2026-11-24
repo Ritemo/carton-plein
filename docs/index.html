@@ -599,6 +599,9 @@ details.avance summary{min-height:32px;cursor:pointer}
 body.direct .jauge .repere{display:none}
 @media (prefers-reduced-motion: reduce){.attente-pts::after,.attente-dir::after{animation:none;content:'...'}}
 .legende{margin:4px 0 0;opacity:.7;font-size:11.5px}
+/* ligne du joueur (D, M, A) : compte pour le bonus Collectif */
+.carte .nom .lg{display:inline-block;font-style:normal;font-size:8px;line-height:11px;min-width:11px;height:11px;border-radius:3px;margin-right:3px;background:#fff;color:#1c1240;vertical-align:1px;text-shadow:none}
+.carte .nom .lg-DEF{background:#cfd8ff}.carte .nom .lg-MIL{background:#ffe08a}.carte .nom .lg-ATT{background:#ffb3a8}
 
 </style>
 </head>
@@ -694,6 +697,7 @@ const GABARIT = [
   { p: 'Milieu', l: 'MIL', c: ['passe', 'interception', 'passe'], k: 'jaune' }, { p: 'Milieu', l: 'MIL', c: ['passe', 'passe', 'contrepied'], k: 'bleu' }, { p: 'Meneur', l: 'MIL', c: ['passe', 'frappe', 'feinte'], k: 'bleu' },
   { p: 'Ailier', l: 'ATT', c: ['dribble', 'course', 'centre'], k: 'vert' }, { p: 'Ailier', l: 'ATT', c: ['dribble', 'course'], k: 'vert' }, { p: 'Buteur', l: 'ATT', c: ['frappe', 'tete'], k: 'rouge' }
 ];
+const NOM_LIGNE = { DEF: 'Défense', MIL: 'Milieu', ATT: 'Attaque' };
 const couleurCarte = c => (C.effectif[c.ji] && C.effectif[c.ji].k) || 'bleu';
 
 // ---------- Combinaisons ----------
@@ -1264,6 +1268,9 @@ function indice() {
     const g = sel.some(c => c.t === 'gardien');
     if (!g && main.some(c => c.t === 'gardien')) return 'Un Gardien derrière ces trois-là : Muraille';
   }
+  // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
+  const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
+  if (att && manqueL.length === 1 && r.valides.length >= 2 && sel.length < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
   const parK = {}; sel.forEach(c => { const k = couleurCarte(c); parK[k] = (parK[k] || 0) + 1; });
   const [k, n] = Object.entries(parK).sort((a, b) => b[1] - a[1])[0];
   if (n >= 2 && n < 4 && sel.length < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
@@ -2425,7 +2432,7 @@ function carteHTML(c, opts) {
   const sp = cons ? `<span class="sp effet">${T.txt}</span>` : c.sp ? `<span class="sp">${SPECIAUX[c.t].nom}</span>` : '';
   const tag = opts.tag || 'button', k = j && j.k ? COULEURS[j.k].hex : '#8a7fb0';
   const st = `--k:${k};` + (opts.style || '');
-  return `<${tag} class="carte t-${c.t} r-${c.r} ${cons ? 'consigne' : `k-${(j && j.k) || 'bleu'}`} ${opts.cls || ''}" data-id="${c.id}" style="${st}"><span class="art">${img(ICT[c.t])}</span><span class="haut lil ${T.nom.length > 10 ? 'long' : ''}">${T.nom}</span>${sp}${cons ? '' : `<span class="piece lil">${v}</span>`}${opts.plus ? `<span class="plus lil">${opts.plus}</span>` : ''}<span class="nom">${j ? j.nom : ''}</span>${pips}</${tag}>`;
+  return `<${tag} class="carte t-${c.t} r-${c.r} ${cons ? 'consigne' : `k-${(j && j.k) || 'bleu'}`} ${opts.cls || ''}" data-id="${c.id}" style="${st}"><span class="art">${img(ICT[c.t])}</span><span class="haut lil ${T.nom.length > 10 ? 'long' : ''}">${T.nom}</span>${sp}${cons ? '' : `<span class="piece lil">${v}</span>`}${opts.plus ? `<span class="plus lil">${opts.plus}</span>` : ''}<span class="nom">${j && !cons ? `<i class="lg lg-${j.l}" title="${NOM_LIGNE[j.l]}">${j.l[0]}</i>` : ''}${j ? j.nom : ''}</span>${pips}</${tag}>`;
 }
 function bulle(qui, txt) { return `<div class="bulle">${img(qui === 'president' ? 'president' : 'dede', 'portrait')}<div><b class="lil">${qui === 'president' ? 'Le président' : 'Dédé, l’intendant'}</b><p>${txt}</p></div></div>`; }
 // Célébrations : but (le buteur fait la roue) et arrêt (gants + ballon dévié)
@@ -2566,7 +2573,7 @@ function hub(onglet) {
   ONGLET = onglet || ONGLET; document.body.className = 'hub'; Son.tension(0);
   barreHaut();
   const cl = clubPar(C.club);
-  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; }); };
+  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
   const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
@@ -2675,7 +2682,7 @@ function effectif() {
     <div class="grille-cartes">${cartes.map(c => carteHTML(c)).join('')}</div>
     <h2 class="lil">Tactiques <small>niveau des combinaisons</small></h2>
     <div class="liste-combos">${combos.map(k => { const n = C.niveaux[k.id] || 1; return `<div class="lcombo"><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>${k.txt}</small></div><div class="lm"><span class="lil">×${fmt(k.mult + 0.5 * (n - 1))}</span><small>niv. ${n}${n > 1 ? ' · +' + 5 * (n - 1) + ' pts' : ''}</small></div></div>`; }).join('')}</div>
-    <p class="astuce">Jeu collectif : une action avec des joueurs des trois lignes (défense, milieu, attaque) gagne +1 au multiplicateur.</p>
+    <p class="astuce">Jeu collectif : une action avec des joueurs des trois lignes (défense, milieu, attaque) gagne +1 au multiplicateur. La lettre D, M ou A en bas de chaque carte indique la ligne du joueur.</p>
   </div>`);
   brancher();
   document.querySelectorAll('[data-f]').forEach(b => (b.onclick = () => { Son.clic(); FILTRE = b.dataset.f; effectif(); }));
@@ -3153,7 +3160,7 @@ function aideCombos() {
   const l = (k) => { const n = C.niveaux[k.id] || 1; return `<div class="lcombo"><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>${k.txt}</small></div><div class="lm"><span class="lil">×${fmt(k.mult + 0.5 * (n - 1))}</span>${n > 1 ? `<small>niv. ${n}</small>` : ''}</div></div>`; };
   modal(`<h1 class="lil">Combinaisons</h1><h2 class="lil">Attaque</h2>${COMBOS_ATT.map(l).join('')}<h2 class="lil">Défense</h2>${COMBOS_DEF.map(l).join('')}
     <div class="lcombo"><div class="ics">${img('interception')}${img('marquage')}${img('tacle')}</div><div class="lt"><b>Bonne lecture</b><small>Interception contre les actions à Passes, Marquage contre Centre-Tête et Débordement, Tacle contre Solo et Percée</small></div><div class="lm"><span class="lil">×2</span></div></div>
-    <div class="lcombo"><div class="ics">${img('tacle')}${img('passe')}${img('frappe')}</div><div class="lt"><b>Jeu collectif</b><small>Des joueurs des 3 lignes dans la même action</small></div><div class="lm"><span class="lil">+1</span></div></div>
+    <div class="lcombo"><div class="ics">${img('tacle')}${img('passe')}${img('frappe')}</div><div class="lt"><b>Jeu collectif</b><small>Des joueurs des 3 lignes dans la même action : lettre D, M ou A en bas de chaque carte</small></div><div class="lm"><span class="lil">+1</span></div></div>
     <h2 class="lil">Couleurs</h2>
     <div class="lcombo"><div class="ics">${Object.keys(COULEURS).map(pastilleK).join('')}</div><div class="lt"><b>Trio</b><small>3 cartes de joueurs de la même couleur : ${Object.values(COULEURS).map(k => k.nom).join(', ')}</small></div><div class="lm"><span class="lil">+1</span></div></div>
     <div class="lcombo"><div class="ics">${pastilleK('rouge')}${pastilleK('rouge')}${pastilleK('rouge')}${pastilleK('rouge')}</div><div class="lt"><b>Carton plein</b><small>4 cartes de la même couleur</small></div><div class="lm"><span class="lil">+2</span></div></div>

@@ -72,6 +72,7 @@ const GABARIT = [
   { p: 'Milieu', l: 'MIL', c: ['passe', 'interception', 'passe'], k: 'jaune' }, { p: 'Milieu', l: 'MIL', c: ['passe', 'passe', 'contrepied'], k: 'bleu' }, { p: 'Meneur', l: 'MIL', c: ['passe', 'frappe', 'feinte'], k: 'bleu' },
   { p: 'Ailier', l: 'ATT', c: ['dribble', 'course', 'centre'], k: 'vert' }, { p: 'Ailier', l: 'ATT', c: ['dribble', 'course'], k: 'vert' }, { p: 'Buteur', l: 'ATT', c: ['frappe', 'tete'], k: 'rouge' }
 ];
+const NOM_LIGNE = { DEF: 'Défense', MIL: 'Milieu', ATT: 'Attaque' };
 const couleurCarte = c => (C.effectif[c.ji] && C.effectif[c.ji].k) || 'bleu';
 
 // ---------- Combinaisons ----------

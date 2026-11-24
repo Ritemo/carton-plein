@@ -226,6 +226,9 @@ function indice() {
     const g = sel.some(c => c.t === 'gardien');
     if (!g && main.some(c => c.t === 'gardien')) return 'Un Gardien derrière ces trois-là : Muraille';
   }
+  // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
+  const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
+  if (att && manqueL.length === 1 && r.valides.length >= 2 && sel.length < max && main.some(c => C.effectif[c.ji] && C.effectif[c.ji].l === manqueL[0] && TYPES[c.t].att)) return `Une carte jouée par ${{ DEF: 'un défenseur (D)', MIL: 'un milieu (M)', ATT: 'un attaquant (A)' }[manqueL[0]]} : Collectif +1`;
   const parK = {}; sel.forEach(c => { const k = couleurCarte(c); parK[k] = (parK[k] || 0) + 1; });
   const [k, n] = Object.entries(parK).sort((a, b) => b[1] - a[1])[0];
   if (n >= 2 && n < 4 && sel.length < max && main.some(c => couleurCarte(c) === k)) return `Encore une carte ${COULEURS[k].nom} pour ${n === 2 ? 'un Trio' : 'un Carton plein'}`;
