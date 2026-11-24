@@ -241,14 +241,16 @@ function sceneTir(o) {
 function choisirZone(z) {
   Son.init(); Son.clic();
   const r = S.res, frappe = r.valides.some(c => c.t === 'frappe'), ratio = r.total / S.cible;
-  S.tirEtat = { zone: z, vert: 16 + (frappe ? 8 : 0) + (ratio >= 0.9 ? 6 : 0) + (aStar('lucarne') ? 14 : 0), jaune: 62 };
+  S.tirEtat = { zone: z, vert: Math.round((16 + (frappe ? 8 : 0) + (ratio >= 0.9 ? 6 : 0) + (aStar('lucarne') ? 14 : 0)) * (jaugeDure() ? 0.6 : 1)), jaune: jaugeDure() ? 50 : 62 };
   zoneAction();
 }
 let JAUGE = null;
+// niveau Normal (et défi, direct) : zone verte plus étroite, curseur plus rapide
+const jaugeDure = () => S && (S.comp === 'defi' || S.comp === 'direct' || reglages().difficulte !== 'facile') && !S.tuto;
 function lancerJauge() {
   cancelAnimationFrame(JAUGE && JAUGE.raf);
   const cur = $('#curseur'); if (!cur) return;
-  const t0 = performance.now(), periode = 1100;
+  const t0 = performance.now(), periode = jaugeDure() ? 820 : 1100;
   JAUGE = { pos: 0, raf: 0 };
   const pas = t => { const x = ((t - t0) % (2 * periode)) / periode; JAUGE.pos = x <= 1 ? x : 2 - x; cur.style.transform = `translateX(${JAUGE.pos * 100}cqw)`; cur.style.left = ''; JAUGE.raf = requestAnimationFrame(pas); };
   if (REDUIT) { JAUGE.pos = 0.5; cur.style.transform = 'translateX(50cqw)'; return; }
@@ -276,7 +278,7 @@ function plonger(col) {
   if (S.phase !== 'tirAdverse' && S.phase !== 'penalty') return;
   Son.init(); Son.clic();
   const gant = (S.res && S.res.valides && S.res.valides.some(c => c.t === 'gardien')) || aStar('mur');
-  S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: 18 + (gant ? 8 : 0), jaune: 62 };
+  S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: Math.round((18 + (gant ? 8 : 0)) * (jaugeDure() ? 0.6 : 1)), jaune: jaugeDure() ? 50 : 62 };
   zoneAction();
 }
 async function plongeon() {

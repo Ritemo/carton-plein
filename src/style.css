@@ -607,3 +607,8 @@ body.direct .jauge .repere{display:none}
 .choix-rgl.on{background:#ffd23f;color:#1c1240;border-color:#000}
 .cible:has(.fourch){width:84px}
 .cible .fourch{font-size:16px;position:relative;z-index:1;-webkit-text-stroke:0;paint-order:stroke fill}
+.liste-fiches{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto;margin:6px 0}
+.fiche-ch{width:100%;text-align:left;color:inherit;border:2px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(255,255,255,.06);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.fiche-ch:active{transform:scale(.97)}
+.fiche-ch:disabled{opacity:.45}
+.fiche-ch .lm{display:flex;align-items:center;gap:3px}

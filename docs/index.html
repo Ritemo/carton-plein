@@ -618,6 +618,11 @@ body.direct .jauge .repere{display:none}
 .choix-rgl.on{background:#ffd23f;color:#1c1240;border-color:#000}
 .cible:has(.fourch){width:84px}
 .cible .fourch{font-size:16px;position:relative;z-index:1;-webkit-text-stroke:0;paint-order:stroke fill}
+.liste-fiches{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow-y:auto;margin:6px 0}
+.fiche-ch{width:100%;text-align:left;color:inherit;border:2px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(255,255,255,.06);transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.fiche-ch:active{transform:scale(.97)}
+.fiche-ch:disabled{opacity:.45}
+.fiche-ch .lm{display:flex;align-items:center;gap:3px}
 
 </style>
 </head>
@@ -2659,6 +2664,7 @@ function vestiaire() {
       : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
       : C.migre ? `Le championnat a changé : on joue maintenant contre tous les vrais clubs de la division, en matchs aller. Ton paquet, tes stars et tes pièces sont intactes. On repart du début de saison.`
+      : C.pieces >= 120 && !C.boutique.achete.fiche && comboFavori() ? `Tu dors sur ${C.pieces} pièces ! Ton ${comboFavori().nom}, tu le joues tout le temps : passe à la boutique faire améliorer sa fiche tactique.`
       : fenetreMercato() && C.journee > 0 ? `Le mercato d'hiver est ouvert. Si un poste te manque, c'est le moment.`
       : rang <= Math.max(1, quotas(C.div).up) ? `On est ${rang === 1 ? 'premiers' : rang + 'es'}. ${C.div > 1 ? `Les ${quotas(C.div).up} premiers montent : on garde le cap.` : 'Le titre est à portée.'}`
         : rang > Object.keys(C.classement).length - quotas(C.div).down ? `On est dans le dur. Améliore tes meilleures cartes à la boutique, ça peut tout changer.`
@@ -2798,6 +2804,18 @@ function ficheCarte(id) {
 }
 
 // ---------- Boutique ----------
+const prixFiche = id => 60 + 20 * ((C.niveaux[id] || 1) - 1);
+const comboFavori = () => { const K = C.carnet && C.carnet.combos; if (!K) return null; const e = Object.entries(K).filter(([id]) => comboPar(id) && !['simple', 'intervention', 'cf'].includes(id)).sort((a, b) => b[1] - a[1])[0]; return e ? comboPar(e[0]) : null; };
+function choisirFiche() {
+  const fav = comboFavori(), liste = tousCombos().filter(k => !['simple', 'intervention'].includes(k.id));
+  const nbJ = id => (C.carnet && C.carnet.combos && C.carnet.combos[id]) || 0; liste.sort((a, b) => nbJ(b.id) - nbJ(a.id));
+  modal(`<h1 class="lil">Fiche tactique</h1><p class="petit">Choisis la combinaison à faire progresser.${fav ? ` Ta plus jouée : <b>${fav.nom}</b>.` : ''}</p>
+    <div class="liste-fiches">${liste.map(k => { const n = C.niveaux[k.id] || 1, p = prixFiche(k.id); return `<button class="lcombo fiche-ch" data-f="${k.id}" ${C.pieces < p ? 'disabled' : ''}><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>niv. ${n} → ${n + 1} · joué ${nbJ(k.id)} fois</small></div><div class="lm"><span class="lil">${p}</span>${img('piece', 'mini-ic')}</div></button>`; }).join('')}</div>
+    <div class="btns"><button class="btn sec" id="fNon">Annuler</button></div>`, () => {
+    document.querySelectorAll('.fiche-ch').forEach(bt => (bt.onclick = () => { const id = bt.dataset.f, p = prixFiche(id); if (C.pieces < p) return; C.pieces -= p; C.niveaux[id] = (C.niveaux[id] || 1) + 1; C.boutique.achete.fiche = true; Son.piece(); toast(`${comboPar(id).nom} niveau ${C.niveaux[id]}`); fermerModal(); maj(); }));
+    $('#fNon').onclick = fermerModal;
+  });
+}
 function boutique() {
   const b = C.boutique, st = b.star ? STARS.find(x => x.id === b.star) : null, fi = comboPar(b.fiche);
   const nf = C.niveaux[b.fiche] || 1;
@@ -2806,7 +2824,7 @@ function boutique() {
     ${bulle('dede', 'Le stock change après chaque match. Les pièces se gagnent en jouant : victoire, buts, fin de saison.')}
     <div class="offres">
       ${st ? offre('star', IC_STAR[st.id], st.nom, `<span class="rar r-${st.r}">${RARETES[st.r].nom}</span> ${st.txt}`, PRIX_STAR[st.r], b.achete.star, C.stars.length >= MAX_STARS) : ''}
-      ${offre('fiche', 'tactique', `Fiche tactique : ${fi.nom}`, `Niveau ${nf} → ${nf + 1} : +0,5 au multiplicateur et +5 points`, 60, b.achete.fiche)}
+      ${offre('fiche', 'tactique', 'Fiche tactique au choix', 'La combinaison de ton choix gagne +0,5 au multiplicateur et +5 points. Dès 60 pièces', 60, b.achete.fiche)}
       ${offre('carte', ICT[b.carte.t], `${TYPES[b.carte.t].nom} ${RARETES[b.carte.r].nom.toLowerCase()}`, `Une nouvelle carte pour ton paquet`, b.carte.prix, b.achete.carte)}
     </div>
     ${C.stars.length >= MAX_STARS ? '<p class="astuce">Tes 5 places de stars sont prises.</p>' : ''}
@@ -2815,7 +2833,7 @@ function boutique() {
   document.querySelectorAll('.offre [data-k]').forEach(bt => (bt.onclick = () => {
     const k = bt.dataset.k;
     if (k === 'star') { const p = PRIX_STAR[st.r]; if (C.pieces < p) return; C.pieces -= p; C.stars.push(st.id); toast(`${st.nom} rejoint le club !`); }
-    if (k === 'fiche') { if (C.pieces < 60) return; C.pieces -= 60; C.niveaux[b.fiche] = nf + 1; toast(`${fi.nom} niveau ${nf + 1}`); }
+    if (k === 'fiche') return choisirFiche();
     if (k === 'carte') { if (C.pieces < b.carte.prix) return; C.pieces -= b.carte.prix; C.cartes.push(nouvelleCarte(b.carte.t, jiPourType(b.carte.t), b.carte.r)); toast('Nouvelle carte !'); }
     b.achete[k] = true; Son.piece(); maj();
   }));
@@ -3129,14 +3147,16 @@ function sceneTir(o) {
 function choisirZone(z) {
   Son.init(); Son.clic();
   const r = S.res, frappe = r.valides.some(c => c.t === 'frappe'), ratio = r.total / S.cible;
-  S.tirEtat = { zone: z, vert: 16 + (frappe ? 8 : 0) + (ratio >= 0.9 ? 6 : 0) + (aStar('lucarne') ? 14 : 0), jaune: 62 };
+  S.tirEtat = { zone: z, vert: Math.round((16 + (frappe ? 8 : 0) + (ratio >= 0.9 ? 6 : 0) + (aStar('lucarne') ? 14 : 0)) * (jaugeDure() ? 0.6 : 1)), jaune: jaugeDure() ? 50 : 62 };
   zoneAction();
 }
 let JAUGE = null;
+// niveau Normal (et défi, direct) : zone verte plus étroite, curseur plus rapide
+const jaugeDure = () => S && (S.comp === 'defi' || S.comp === 'direct' || reglages().difficulte !== 'facile') && !S.tuto;
 function lancerJauge() {
   cancelAnimationFrame(JAUGE && JAUGE.raf);
   const cur = $('#curseur'); if (!cur) return;
-  const t0 = performance.now(), periode = 1100;
+  const t0 = performance.now(), periode = jaugeDure() ? 820 : 1100;
   JAUGE = { pos: 0, raf: 0 };
   const pas = t => { const x = ((t - t0) % (2 * periode)) / periode; JAUGE.pos = x <= 1 ? x : 2 - x; cur.style.transform = `translateX(${JAUGE.pos * 100}cqw)`; cur.style.left = ''; JAUGE.raf = requestAnimationFrame(pas); };
   if (REDUIT) { JAUGE.pos = 0.5; cur.style.transform = 'translateX(50cqw)'; return; }
@@ -3164,7 +3184,7 @@ function plonger(col) {
   if (S.phase !== 'tirAdverse' && S.phase !== 'penalty') return;
   Son.init(); Son.clic();
   const gant = (S.res && S.res.valides && S.res.valides.some(c => c.t === 'gardien')) || aStar('mur');
-  S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: 18 + (gant ? 8 : 0), jaune: 62 };
+  S.tirEtat = { zone: null, col, sac: S.phase === 'penalty' && document.getElementById('sacr') && document.getElementById('sacr').checked, vert: Math.round((18 + (gant ? 8 : 0)) * (jaugeDure() ? 0.6 : 1)), jaune: jaugeDure() ? 50 : 62 };
   zoneAction();
 }
 async function plongeon() {
