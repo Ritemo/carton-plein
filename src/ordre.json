@@ -1,6 +1,20 @@
 {
-  "moteur": ["config.js", "moteur/donnees.js", "moteur/carriere.js", "moteur/match.js", "moteur/variete.js",
-             "monde/clubs.js", "monde/competitions.js", "moteur/objectifs.js", "moteur/tirs.js",
-             "ecrans/tuto.js", "sync.js"],
-  "ecrans": ["ecrans/club.js", "ecrans/match.js"]
+  "moteur": [
+    "config.js",
+    "moteur/donnees.js",
+    "moteur/carriere.js",
+    "moteur/match.js",
+    "moteur/variete.js",
+    "monde/clubs.js",
+    "monde/competitions.js",
+    "moteur/objectifs.js",
+    "moteur/tirs.js",
+    "moteur/carnet.js",
+    "ecrans/tuto.js",
+    "sync.js"
+  ],
+  "ecrans": [
+    "ecrans/club.js",
+    "ecrans/match.js"
+  ]
 }

@@ -160,6 +160,7 @@ async function jouer(force) {
   if (S.phase !== 'choix' || (!S.sel.length && force !== true)) return;
   Son.init();
   const r = calcul(S.sel);
+  noterChoix(r);
   S.phase = 'calcul'; S.anim = { r, pts: 0, mult: null, total: null };
   zoneAction();
   for (let i = 0; i < r.pts.length; i++) {
@@ -237,6 +238,7 @@ function frapper() {
   cancelAnimationFrame(JAUGE.raf);
   const T = S.tirEtat, z = T.zone, qualite = qualiteJauge(JAUGE.pos, T.vert, T.jaune);
   const { gk, devine, marque } = issueFrappe(z, qualite);
+  noterTir(true, qualite, { marque });
   const t = { moiTire: true, zone: z, gk, marque, horsCadre: qualite === 'rouge', qualite, rebond: [POS_ZONE[z][0] + (z[1] === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = t.horsCadre ? `Frappe ratée : le ballon passe ${z[0] === 'H' ? 'au-dessus' : 'à côté'}.` : marque ? (devine ? 'Le gardien était du bon côté, mais la frappe parfaite le bat !' : `Tir ${nomZone(z)}, le gardien plonge ${cote(gk)}.`) : devine ? `Le gardien a deviné : tir ${nomZone(z)}.` : 'Frappe trop molle : le gardien a le temps de revenir.';
   resoudreTir(t);
@@ -255,6 +257,7 @@ function plongeon() {
   const couverts = [col];
   if (T.sac) { const g = S.main.find(x => x.t === 'gardien'); if (g) retirerJouees([g]); couverts.push(col === 'C' ? pick(['G', 'D']) : 'C'); }
   const { zone: z, colTir, bonCote, arret } = issuePlongeon(qualite, couverts, S.tendance.col);
+  noterTir(false, qualite, { bonCote, arret });
   const t = { moiTire: false, zone: z, gk: arret || qualite !== 'rouge' ? col : 'C', couverts, marque: !arret, rebond: [POS_ZONE[z][0] + (colTir === 'D' ? 12 : -12), Math.min(88, POS_ZONE[z][1] + 26)] };
   t.texte = arret ? `${qualite === 'vert' ? 'Plongeon parfait' : 'Du bout des gants'} : tir ${nomZone(z)}${T.sac ? ', ton sacrifice a payé' : ''}.`
     : !bonCote ? `Tir ${nomZone(z)}, tu as plongé ${cote(col)}.` : qualite === 'rouge' ? 'Bon côté, mais plongeon raté : trop tôt ou trop tard.' : 'Bon côté, mais le ballon passe sous les gants.';

@@ -157,6 +157,7 @@ function facteurAdversaire(id) {
 // ---------- Fin de match côté carrière ----------
 function bilanMatch(tab) {
   const opp = S.opp, gp = S.score.p, gc = S.score.ia, comp = S.comp || 'ligue';
+  verserCarnet(gp, gc);
   let gain, coupe = null;
   let rivalTxt = null;
   if (comp === 'ligue') {

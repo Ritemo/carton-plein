@@ -3,7 +3,7 @@ import pathlib; F=pathlib.Path(__file__).resolve().parents[2].joinpath('docs','i
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':375,'height':740},device_scale_factor=2)
     errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
-    pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>{effacer(); localStorage.setItem('carton-plein-tuto','1')}"); pg.reload(); pg.wait_for_timeout(500)
+    pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>{effacer(); localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-cloud','')}"); pg.reload(); pg.wait_for_timeout(500)
     pg.click('#bNew'); pg.wait_for_timeout(300); pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
     for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
     pg.click('#bJouer'); pg.wait_for_timeout(300); pg.click('#mGo'); pg.wait_for_timeout(500)

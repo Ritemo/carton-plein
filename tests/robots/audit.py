@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>effacer()"); pg.reload(); pg.wait_for_timeout(600)
     shot('accueil')
     clic('#bRegles'); shot('regles'); pg.evaluate("()=>fermerModal()"); pg.wait_for_timeout(300); pg.wait_for_timeout(300)
-    pg.evaluate("()=>localStorage.setItem('carton-plein-tuto','1')"); clic('#bNew'); shot('pays')
+    pg.evaluate("()=>{localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-cloud','')}"); clic('#bNew'); shot('pays')
     clic('.pays-choix[data-p="it"]'); shot('club_it')
     clic('#bRet'); clic('.pays-choix[data-p="fr"]'); shot('club_fr')
     clic('.club-choix[data-id="caen"]'); shot('intro1')
