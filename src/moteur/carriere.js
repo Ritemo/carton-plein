@@ -33,8 +33,9 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   }
   if (!c.objectifs) { const av2 = C; C = c; try { nouveauxObjectifs(); } catch (e) {} C = av2; }
   if ((c.v || 1) < 5) { if (!c.cartes.some(x => x.t === 'feinte')) c.cartes.push(nouvelleCarte('feinte', 7, 'rare')); c.nouveautesV13 = true; }
+  if ((c.v || 1) < 6) c.nouveautesV16 = true;
   C = av;
-  c.v = 5; return c;
+  c.v = 6; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -148,7 +149,13 @@ function appliquerRecompense(o) {
 }
 
 // ---------- Facteur de difficulté ----------
+// niveau Facile : murs et attaques adverses plus bas (sauf défi de la semaine et direct, pour rester comparables)
+const NIVEAUX = { facile: 0.85, normal: 1.15 };
 function facteurAdversaire(id) {
+  const f = facteurBrut(id), fixe = S && (S.comp === 'defi' || S.comp === 'direct');
+  return fixe ? f : f * (NIVEAUX[reglages().difficulte] || 1);
+}
+function facteurBrut(id) {
   if (S && S.facteurFixe) return S.facteurFixe;
   let base = DIFF[C.div];
   if (S && S.cup) { const K = COUPES[S.cup.k]; base = S.cup.k === 'nat' ? DIFF[C.divisions[id]] * K.diff[S.cup.tour] : K.diff[S.cup.tour]; }

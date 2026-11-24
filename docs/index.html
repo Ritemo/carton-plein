@@ -604,6 +604,20 @@ body.direct .jauge .repere{display:none}
 .carte .nom .lg-DEF{background:#9fd0ff}.carte .nom .lg-MIL{background:#ffd23f}.carte .nom .lg-ATT{background:#ff8f7a}
 .dc.note{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
 #stars .star{cursor:pointer}
+/* mur en fourchette */
+.cible .fourch{display:flex;align-items:baseline;gap:2px;font-size:19px;line-height:1;white-space:nowrap;letter-spacing:-.02em}
+.cible .fourch small{font-size:13px;font-weight:900}
+.jauge .bande{position:absolute;top:-3px;bottom:-3px;background:repeating-linear-gradient(135deg,rgba(255,210,63,.55) 0 5px,rgba(255,210,63,.15) 5px 10px);border-left:2px solid #ffd23f;border-right:2px solid #ffd23f;border-radius:4px;pointer-events:none}
+.jauge .rempli.peut{background:repeating-linear-gradient(135deg,#9bd94f 0 8px,#ffd23f 8px 16px)}
+/* réglages */
+.rgl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.choix-rgl{text-align:left;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);border-radius:14px;padding:10px 12px;color:inherit;min-height:44px;transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.choix-rgl:active{transform:scale(.97)}
+.choix-rgl b{display:block;font-size:15px}
+.choix-rgl small{display:block;font-size:12px;opacity:.8}
+.choix-rgl.on{background:#ffd23f;color:#1c1240;border-color:#000}
+.cible:has(.fourch){width:84px}
+.cible .fourch{font-size:16px;position:relative;z-index:1;-webkit-text-stroke:0;paint-order:stroke fill}
 
 </style>
 </head>
@@ -801,8 +815,9 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   }
   if (!c.objectifs) { const av2 = C; C = c; try { nouveauxObjectifs(); } catch (e) {} C = av2; }
   if ((c.v || 1) < 5) { if (!c.cartes.some(x => x.t === 'feinte')) c.cartes.push(nouvelleCarte('feinte', 7, 'rare')); c.nouveautesV13 = true; }
+  if ((c.v || 1) < 6) c.nouveautesV16 = true;
   C = av;
-  c.v = 5; return c;
+  c.v = 6; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -916,7 +931,13 @@ function appliquerRecompense(o) {
 }
 
 // ---------- Facteur de difficulté ----------
+// niveau Facile : murs et attaques adverses plus bas (sauf défi de la semaine et direct, pour rester comparables)
+const NIVEAUX = { facile: 0.85, normal: 1.15 };
 function facteurAdversaire(id) {
+  const f = facteurBrut(id), fixe = S && (S.comp === 'defi' || S.comp === 'direct');
+  return fixe ? f : f * (NIVEAUX[reglages().difficulte] || 1);
+}
+function facteurBrut(id) {
   if (S && S.facteurFixe) return S.facteurFixe;
   let base = DIFF[C.div];
   if (S && S.cup) { const K = COUPES[S.cup.k]; base = S.cup.k === 'nat' ? DIFF[C.divisions[id]] * K.diff[S.cup.tour] : K.diff[S.cup.tour]; }
@@ -1046,9 +1067,9 @@ function accepterOffre(id) {
 // =====================================================================
 // MATCH (S)
 // =====================================================================
-const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.15, r: 0.32 };
+const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.2, r: 0.32 };
 let S = null;
-const NB_TF = 6, CHANGEMENTS = 3;
+const NB_TF = 6, CHANGEMENTS = 3, PIOCHE_TF = 3; // après chaque temps fort, on ne pioche que 3 cartes (main pleine à la mi-temps)
 const aStar = id => S && S.stars.includes(id);
 function nouveauMatch(m, auto, opts) {
   m = m || prochainMatch(); const oppId = m.opp;
@@ -1076,8 +1097,9 @@ function activerConsignes(sel) {
     if (c.t === 'relance') { for (let i = 0; i < 2; i++) { if (!S.pioche.length) { S.pioche = melanger(S.defausse); S.defausse = []; } if (S.pioche.length) S.main.push(S.pioche.pop()); } }
   });
 }
-function piocher() {
-  while (S.main.length < tailleMain()) {
+function piocher(n) {
+  let reste = n == null ? Infinity : n;
+  while (S.main.length < tailleMain() && reste-- > 0) {
     if (!S.pioche.length) { S.pioche = melanger(S.defausse); S.defausse = []; if (!S.pioche.length) return; }
     S.main.push(S.pioche.pop());
   }
@@ -1147,6 +1169,7 @@ function preparerTF() {
   S.advAnnulee = null;
   if (aStar('anticipe') && S.adv.length) { const mi = S.tf < NB_TF / 2 ? 1 : 2; S.strat = S.strat || {}; if (!S.strat[mi]) { S.strat[mi] = true; S.advAnnulee = S.adv.shift(); } }
   S.adv.forEach(k => { if (CARTES_ADV[k].cible) S.cible = Math.round(S.cible * CARTES_ADV[k].cible); });
+  fixerFourchette();
   S.sel = []; S.phase = 'choix'; S.res = null; S.modeChange = false;
   if (S.tf === NB_TF / 2) piocher();
   if (typeof afficherMatch === 'function' && !S.auto) afficherMatch();
@@ -1252,6 +1275,7 @@ function possibilites() {
 // Indice : une piste, jamais la solution. Sans sélection, on dit seulement combien de combinaisons
 // la main cache. Avec une sélection, on signale la combinaison à une carte près, si cette carte est en main.
 function indice() {
+  if (!reglages().indices) return '';
   const att = enAttaque(), max = maxJouees(), sel = S.sel;
   const main = S.main.filter(c => TYPES[c.t].att === att && !sel.includes(c));
   if (!sel.length) {
@@ -1300,6 +1324,14 @@ function meilleurCoup(brut) {
   }
   return { sel: best, total: btot };
 }
+// mur approximatif (niveau Normal) : on annonce une fourchette, la vraie valeur est quelque part dedans
+function fixerFourchette() {
+  S.fourchette = null;
+  if (S.tuto || S.comp === 'direct' || (reglages().difficulte === 'facile' && S.comp !== 'defi')) return;
+  const w = Math.max(6, Math.round(S.cible * 0.2)), off = rnd(w + 1);
+  S.fourchette = [S.cible - off, S.cible - off + w];
+}
+const refCible = () => (S.fourchette ? (S.fourchette[0] + S.fourchette[1]) / 2 : S.cible);
 function seuilBut() { return aStar('buteur') ? 0.85 : 1; }
 function issue(r) {
   const ratio = r.total / S.cible;
@@ -2303,7 +2335,7 @@ function bulleTuto() {
     else if (ph === 'choix' && !att) une('def', 'En défense, l’adversaire annonce son attaque. Atteins son chiffre avec tes cartes de défense : Tacle, Marquage, Interception, Gardien.');
     else if (ph === 'occasion') une('occ', 'Presque ! Vise une zone du but, puis appuie quand le curseur est dans le <b>vert</b>.');
     else if (ph === 'tirAdverse' || ph === 'penalty') une('plonge', 'Le tireur a une habitude, indiquée sous le but. Choisis ton côté, puis plonge quand le curseur est dans le <b>vert</b>.');
-    else if (['but', 'rate', 'stoppe', 'butAdverse', 'tirRes'].includes(ph)) une('suite', '6 temps forts par match : 3 attaques, 3 défenses. Les cartes jouées sont remplacées.');
+    else if (['but', 'rate', 'stoppe', 'butAdverse', 'tirRes'].includes(ph)) une('suite', '6 temps forts par match : 3 attaques, 3 défenses. Après chaque temps fort, tu pioches 3 cartes ; ta main se remplit à la mi-temps.');
   } else {
     if (ph === 'choix' && S.adv && S.adv.length) une('adv', 'L’adversaire joue des <b>cartes</b>, affichées sous son cadre. Contourne-les, ou joue ta <b>Feinte</b> (violette) pour les annuler.');
     else if (ph === 'choix' && att && (!vus.coul || vus.coul === S.tf + ph)) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2). La couleur vient du <b>joueur</b>, pas du type de carte : une Frappe peut être rouge ou bleue.');
@@ -2383,6 +2415,10 @@ async function apiEcrire(action, corps) {
 }
 // publier dans le fil d'actualité, sans jamais bloquer le jeu
 function publier(txt, type, pour) { const p = profil(); if (!urlCloud() || !p.pseudo) return; apiEcrire('publier', { code: p.code, pseudo: p.pseudo, txt, type: type || '', pour: pour || null }).catch(() => { }); }
+
+// réglages de ce téléphone : niveau et indices
+const reglages = () => Object.assign({ difficulte: 'normal', indices: true }, profil().reglages || {});
+function changerReglage(k, v) { const p = profil(); p.reglages = Object.assign(reglages(), { [k]: v }); majProfil(p); }
 
 // =====================================================================
 // CARTON PLEIN : écrans
@@ -2557,6 +2593,17 @@ function intro() {
     { qui: 'dede', ic: 'capitaine', txt: `Je t'ai trouvé un Capitaine. Quand on est mené, il double tout. Et passe voir les gamins du centre de formation : l'avenir du club, c'est eux.`, bouton: 'Au vestiaire' }
   ], () => hub('vestiaire'));
 }
+function ecranReglages() {
+  const R = reglages(), opt = (k, v, t, d) => `<button class="choix-rgl ${R[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}"><b>${t}</b><small>${d}</small></button>`;
+  modal(`<h1 class="lil">Réglages</h1>
+    <h2 class="lil">Niveau</h2><div class="rgl">${opt('difficulte', 'facile', 'Facile', 'Adversaires plus faibles, mur affiché au point près. Idéal pour débuter.')}${opt('difficulte', 'normal', 'Normal', 'Le vrai défi : mur annoncé en fourchette, adversaires plus coriaces.')}</div>
+    <h2 class="lil">Indices</h2><div class="rgl">${opt('indices', true, 'Avec indices', 'Une piste sous l’Attaquer : combinaison à une carte près.')}${opt('indices', false, 'Sans indice', 'À toi de tout voir.')}</div>
+    <p class="petit">Réglages de ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
+    <div class="btns"><button class="btn" id="rOk">OK</button></div>`, () => {
+    document.querySelectorAll('.choix-rgl').forEach(b => (b.onclick = () => { Son.clic(); changerReglage(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); ecranReglages(); }));
+    $('#rOk').onclick = fermerModal;
+  });
+}
 function regles() {
   modal(`<h1 class="lil">Comment jouer</h1>
     <div class="regles">
@@ -2564,7 +2611,8 @@ function regles() {
       <div>${img('gemme')}<span><b>Couleurs</b> : chaque joueur a une couleur (bandeau en bas de la carte). 3 cartes de la même couleur : <b>Trio</b>, +1 au combo. 4 : <b>Carton plein</b>, +2.</span></div>
       <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Elles prennent une place dans l'action mais préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
       <div>${img('etoile')}<span>Joue <b>jusqu'à 4 cartes</b>. Leurs points s'additionnent, la <b>combinaison</b> les multiplie.</span></div>
-      <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>.</span></div>
+      <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>. Au niveau Normal, ils sont annoncés en <b>fourchette</b> : la vraie valeur se révèle après ton choix.</span></div>
+      <div>${img('sablier')}<span>Après chaque temps fort, tu ne pioches que <b>3 cartes</b> (main pleine à la mi-temps). Tout donner maintenant, ou garder des cartes pour la suite ?</span></div>
       <div>${img('filet')}<span>Presque (70 %) : un <b>tir</b> où l'on choisit son côté.</span></div>
       <div>${img('tactique')}<span>Coups francs, corners, contres éclair et penalties pimentent les matchs.</span></div>
       <div>${img('gemme')}<span>Entre les matchs : récompenses, boutique, améliorations, dilemmes de vestiaire.</span></div>
@@ -2581,7 +2629,7 @@ function hub(onglet) {
   ONGLET = onglet || ONGLET; document.body.className = 'hub'; Son.tension(0);
   barreHaut();
   const cl = clubPar(C.club);
-  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
+  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
   const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
@@ -2608,6 +2656,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
       : C.migre ? `Le championnat a changé : on joue maintenant contre tous les vrais clubs de la division, en matchs aller. Ton paquet, tes stars et tes pièces sont intactes. On repart du début de saison.`
       : fenetreMercato() && C.journee > 0 ? `Le mercato d'hiver est ouvert. Si un poste te manque, c'est le moment.`
@@ -2635,7 +2684,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10) { C.migre = false; C.nouveautesV10 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); lancerMatch(); };
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
@@ -2874,12 +2923,12 @@ function afficherMatch() {
     const st = STARS.find(x => x.id === el.dataset.mot); if (st) infoBulle(IC_STAR[st.id], st.nom, st.txt);
   }));
   const adv = $('#adv');
-  const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
+  const nb = n => S.fourchette ? `<span class="fourch">${S.fourchette[0]}<small>-</small>${S.fourchette[1]}</span>` : `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
   if (S.comp === 'direct') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${echap(S.ami.pseudo)} ${att ? 'défend' : 'attaque'}</div><div class="sous">${att ? 'Il pose ses défenseurs en même temps que toi. Fais le plus gros total.' : 'Il prépare son attaque en même temps. Défends fort.'}</div></div><div class="cible ${att ? 'mur' : 'danger'} lil">${img(att ? 'mur' : 'feu', 'fond')}<span>?</span></div>`;
-  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
+  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : (S.fourchette ? 'Le mur est quelque part dans la fourchette. Au-dessus : <b>but</b>. Dès 70 % : <b>occasion</b>.' : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.')}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
   else if (S.type === 'penalty') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">Penalty pour ${S.eq.ia.nom}</div><div class="sous">Faute dans la surface !</div></div><div class="cible danger lil">${img('filet', 'fond')}</div>`;
-  else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
+  else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.fourchette ? `${S.fourchette[0]} à ${S.fourchette[1]}` : S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
   zoneAction();
 }
 function zoneAction() {
@@ -2895,7 +2944,7 @@ function zoneAction() {
     const sb = seuilBut();
     ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
       <div class="calcul"><div class="boite-pts"><span class="n lil">${vide ? 0 : pts}</span><small>points</small></div><div class="fois lil">×</div><div class="boite-mult"><span class="n lil">${vide ? 1 : fmt(mult)}</span><small>combo</small></div><div class="fois lil">=</div><div class="total"><span class="n lil">${vide ? 0 : tot}</span></div></div>
-      <div class="jauge"><div class="rempli"></div>${att ? `<span class="repere occ" style="left:${70 / 1.3}%"></span>` : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(att ? sb : 1) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
+      <div class="jauge"><div class="rempli"></div>${S.fourchette ? (() => { const R = refCible(), s = att ? sb : 1, a = S.fourchette[0] * s / R / 1.3 * 100, b = S.fourchette[1] * s / R / 1.3 * 100; return `<span class="repere occ" style="left:${0.7 * S.fourchette[0] / R / 1.3 * 100}%"></span><span class="bande" style="left:${a}%;width:${b - a}%"></span>`; })() : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(S.fourchette ? (att ? sb : 1) * S.fourchette[1] / refCible() : (att ? sb : 1)) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
       ${!vide && r.futur && r.futur.length ? `<div class="futur">${img('sablier', 'mini-ic')} Au prochain temps fort : ${r.futur.map(t => TYPES[t].txt.replace('Ton prochain temps fort ', '').replace(' au prochain temps fort', '').replace('Prochain objectif adverse', 'objectif adverse')).join(' · ')}</div>` : ''}`;
     majJauge(enCalc ? (S.anim.total == null ? 0 : S.anim.total) : (vide ? 0 : r.total));
@@ -2933,8 +2982,8 @@ function zoneAction() {
   } else {
     const r = S.res || { combo: {}, total: 0 };
     const R = {
-      but: ['ballon', 'BUT !', `${r.combo.nom} à ${r.total} : le mur (${S.cible}) a cédé.`, 'gagne'],
-      rate: ['mur', 'Le mur tient', `${r.total}, trop peu face à ${S.cible}.`, 'perd'],
+      but: ['ballon', 'BUT !', `${r.combo.nom} à ${r.total} : le mur${S.fourchette ? ' était à' : ''} ${S.cible}${S.fourchette ? ', il a cédé' : ' a cédé'}.`, 'gagne'],
+      rate: ['mur', 'Le mur tient', `${r.total}, trop peu : le mur était à ${S.cible}.`, 'perd'],
       stoppe: ['bouclier', 'Action stoppée !', `${r.combo.nom} à ${r.total} contre ${S.cible}.`, 'gagne'],
       butAdverse: ['feu', 'But adverse', `Ta défense (${r.total}) n'a rien pu faire contre ${S.cible}.`, 'perd']
     }[ph] || ['ballon', '', '', ''];
@@ -2984,10 +3033,11 @@ function detailCalcul(r) {
 }
 function majJauge(total) {
   const g = document.querySelector('.jauge .rempli'); if (!g) return;
-  const pct = Math.min(100, total / (S.cible * 1.3) * 100);
+  const pct = Math.min(100, total / (refCible() * 1.3) * 100);
   g.style.transform = `scaleX(${pct / 100})`;
-  const sb = enAttaque() ? seuilBut() : 1;
-  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
+  const sb = enAttaque() ? seuilBut() : 1, F = S.fourchette;
+  // avec une fourchette : vert seulement si c'est sûr, jaune rayé si ça peut passer
+  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : F ? (total >= sb * F[1] ? 'ok' : total >= sb * F[0] ? 'peut' : total >= 0.7 * F[0] ? 'presque' : '') : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
 }
 function majCalcul() {
   const r = S.anim.r, p = document.querySelector('.boite-pts .n'), m = document.querySelector('.boite-mult .n'), t = document.querySelector('.total .n');
@@ -3010,8 +3060,8 @@ function changer() {
   Son.clic();
   if (!S.modeChange) { S.modeChange = true; S.sel = []; return zoneAction(); }
   if (!S.sel.length) { S.modeChange = false; return zoneAction(); }
-  S.sel.forEach(c => { S.main = S.main.filter(x => x.id !== c.id); S.defausse.push(c); });
-  S.changements--; S.sel = []; S.modeChange = false; S.dejaVu = false; piocher(); zoneAction();
+  const n = S.sel.length; S.sel.forEach(c => { S.main = S.main.filter(x => x.id !== c.id); S.defausse.push(c); });
+  S.changements--; S.sel = []; S.modeChange = false; S.dejaVu = false; piocher(n); zoneAction();
 }
 async function jouer(force) {
   if (S.phase !== 'choix' || (!S.sel.length && force !== true)) return;
@@ -3163,7 +3213,7 @@ function resoudreTir(t, pen) {
 function rafraichirTableau() { const s = document.querySelector('#tableau .sc'); if (s) s.innerHTML = `${S.score.p}<span>-</span>${S.score.ia}`; }
 function suiteTF() {
   Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.duelAdv = null; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
-  const go = () => { piocher(); preparerTF(); };
+  const go = () => { piocher(PIOCHE_TF); preparerTF(); };
   const e = S.comp === 'defi' || S.comp === 'direct' ? null : tirerEvenement(); if (!e) return go();
   const T = TEXTE_EVT[e.id](e);
   modal(`${img(T.ic, 'grande-ic')}<h1 class="lil">${T.titre}</h1><p>${T.txt}</p><div class="btns col">${T.a ? `<button class="btn" id="eA">${T.a}</button><button class="btn sec" id="eB">${T.b}</button>` : `<button class="btn" id="eA">Continuer</button>`}</div>`, () => {

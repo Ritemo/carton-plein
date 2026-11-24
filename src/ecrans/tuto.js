@@ -55,7 +55,7 @@ function bulleTuto() {
     else if (ph === 'choix' && !att) une('def', 'En défense, l’adversaire annonce son attaque. Atteins son chiffre avec tes cartes de défense : Tacle, Marquage, Interception, Gardien.');
     else if (ph === 'occasion') une('occ', 'Presque ! Vise une zone du but, puis appuie quand le curseur est dans le <b>vert</b>.');
     else if (ph === 'tirAdverse' || ph === 'penalty') une('plonge', 'Le tireur a une habitude, indiquée sous le but. Choisis ton côté, puis plonge quand le curseur est dans le <b>vert</b>.');
-    else if (['but', 'rate', 'stoppe', 'butAdverse', 'tirRes'].includes(ph)) une('suite', '6 temps forts par match : 3 attaques, 3 défenses. Les cartes jouées sont remplacées.');
+    else if (['but', 'rate', 'stoppe', 'butAdverse', 'tirRes'].includes(ph)) une('suite', '6 temps forts par match : 3 attaques, 3 défenses. Après chaque temps fort, tu pioches 3 cartes ; ta main se remplit à la mi-temps.');
   } else {
     if (ph === 'choix' && S.adv && S.adv.length) une('adv', 'L’adversaire joue des <b>cartes</b>, affichées sous son cadre. Contourne-les, ou joue ta <b>Feinte</b> (violette) pour les annuler.');
     else if (ph === 'choix' && att && (!vus.coul || vus.coul === S.tf + ph)) une('coul', 'Regarde les <b>couleurs</b> : 3 cartes de la même couleur = Trio (+1 au combo), 4 = Carton plein (+2). La couleur vient du <b>joueur</b>, pas du type de carte : une Frappe peut être rouge ou bleue.');

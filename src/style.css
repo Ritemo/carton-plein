@@ -593,3 +593,17 @@ body.direct .jauge .repere{display:none}
 .carte .nom .lg-DEF{background:#9fd0ff}.carte .nom .lg-MIL{background:#ffd23f}.carte .nom .lg-ATT{background:#ff8f7a}
 .dc.note{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
 #stars .star{cursor:pointer}
+/* mur en fourchette */
+.cible .fourch{display:flex;align-items:baseline;gap:2px;font-size:19px;line-height:1;white-space:nowrap;letter-spacing:-.02em}
+.cible .fourch small{font-size:13px;font-weight:900}
+.jauge .bande{position:absolute;top:-3px;bottom:-3px;background:repeating-linear-gradient(135deg,rgba(255,210,63,.55) 0 5px,rgba(255,210,63,.15) 5px 10px);border-left:2px solid #ffd23f;border-right:2px solid #ffd23f;border-radius:4px;pointer-events:none}
+.jauge .rempli.peut{background:repeating-linear-gradient(135deg,#9bd94f 0 8px,#ffd23f 8px 16px)}
+/* réglages */
+.rgl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.choix-rgl{text-align:left;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);border-radius:14px;padding:10px 12px;color:inherit;min-height:44px;transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.choix-rgl:active{transform:scale(.97)}
+.choix-rgl b{display:block;font-size:15px}
+.choix-rgl small{display:block;font-size:12px;opacity:.8}
+.choix-rgl.on{background:#ffd23f;color:#1c1240;border-color:#000}
+.cible:has(.fourch){width:84px}
+.cible .fourch{font-size:16px;position:relative;z-index:1;-webkit-text-stroke:0;paint-order:stroke fill}

@@ -35,12 +35,12 @@ function afficherMatch() {
     const st = STARS.find(x => x.id === el.dataset.mot); if (st) infoBulle(IC_STAR[st.id], st.nom, st.txt);
   }));
   const adv = $('#adv');
-  const nb = n => `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
+  const nb = n => S.fourchette ? `<span class="fourch">${S.fourchette[0]}<small>-</small>${S.fourchette[1]}</span>` : `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
   adv.classList.toggle('special', !!sp);
   if (S.comp === 'direct') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${echap(S.ami.pseudo)} ${att ? 'défend' : 'attaque'}</div><div class="sous">${att ? 'Il pose ses défenseurs en même temps que toi. Fais le plus gros total.' : 'Il prépare son attaque en même temps. Défends fort.'}</div></div><div class="cible ${att ? 'mur' : 'danger'} lil">${img(att ? 'mur' : 'feu', 'fond')}<span>?</span></div>`;
-  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.'}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
+  else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : (S.fourchette ? 'Le mur est quelque part dans la fourchette. Au-dessus : <b>but</b>. Dès 70 % : <b>occasion</b>.' : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.')}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
   else if (S.type === 'penalty') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">Penalty pour ${S.eq.ia.nom}</div><div class="sous">Faute dans la surface !</div></div><div class="cible danger lil">${img('filet', 'fond')}</div>`;
-  else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
+  else adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${S.eq.ia.nom} : ${comboPar(S.intention).nom}</div><div class="sous">Atteins <b>${S.fourchette ? `${S.fourchette[0]} à ${S.fourchette[1]}` : S.cible}</b> avec tes défenseurs.</div></div><div class="cible danger lil">${img('feu', 'fond')}${nb(S.cible)}</div>`;
   zoneAction();
 }
 function zoneAction() {
@@ -56,7 +56,7 @@ function zoneAction() {
     const sb = seuilBut();
     ac.innerHTML = `<div class="ruban lil ${vide ? 'vide' : ''}">${vide ? (S.modeChange ? 'Échange : touche les cartes à remplacer' : `${att ? 'Ton attaque' : 'Ta défense'} : jusqu'à ${maxJouees()} carte${maxJouees() > 1 ? 's' : ''}`) : r.combo.nom + (r.niv > 1 ? ` <small>niv. ${r.niv}</small>` : '')}</div>
       <div class="calcul"><div class="boite-pts"><span class="n lil">${vide ? 0 : pts}</span><small>points</small></div><div class="fois lil">×</div><div class="boite-mult"><span class="n lil">${vide ? 1 : fmt(mult)}</span><small>combo</small></div><div class="fois lil">=</div><div class="total"><span class="n lil">${vide ? 0 : tot}</span></div></div>
-      <div class="jauge"><div class="rempli"></div>${att ? `<span class="repere occ" style="left:${70 / 1.3}%"></span>` : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(att ? sb : 1) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
+      <div class="jauge"><div class="rempli"></div>${S.fourchette ? (() => { const R = refCible(), s = att ? sb : 1, a = S.fourchette[0] * s / R / 1.3 * 100, b = S.fourchette[1] * s / R / 1.3 * 100; return `<span class="repere occ" style="left:${0.7 * S.fourchette[0] / R / 1.3 * 100}%"></span><span class="bande" style="left:${a}%;width:${b - a}%"></span>`; })() : `<span class="repere occ" style="left:${70 / 1.3}%"></span>`}<span class="repere but" style="left:${(S.fourchette ? (att ? sb : 1) * S.fourchette[1] / refCible() : (att ? sb : 1)) * 100 / 1.3}%">${img(att ? 'ballon' : 'bouclier')}</span></div>
       <div class="detail">${vide ? '' : detailCalcul(r)}</div>
       ${!vide && r.futur && r.futur.length ? `<div class="futur">${img('sablier', 'mini-ic')} Au prochain temps fort : ${r.futur.map(t => TYPES[t].txt.replace('Ton prochain temps fort ', '').replace(' au prochain temps fort', '').replace('Prochain objectif adverse', 'objectif adverse')).join(' · ')}</div>` : ''}`;
     majJauge(enCalc ? (S.anim.total == null ? 0 : S.anim.total) : (vide ? 0 : r.total));
@@ -94,8 +94,8 @@ function zoneAction() {
   } else {
     const r = S.res || { combo: {}, total: 0 };
     const R = {
-      but: ['ballon', 'BUT !', `${r.combo.nom} à ${r.total} : le mur (${S.cible}) a cédé.`, 'gagne'],
-      rate: ['mur', 'Le mur tient', `${r.total}, trop peu face à ${S.cible}.`, 'perd'],
+      but: ['ballon', 'BUT !', `${r.combo.nom} à ${r.total} : le mur${S.fourchette ? ' était à' : ''} ${S.cible}${S.fourchette ? ', il a cédé' : ' a cédé'}.`, 'gagne'],
+      rate: ['mur', 'Le mur tient', `${r.total}, trop peu : le mur était à ${S.cible}.`, 'perd'],
       stoppe: ['bouclier', 'Action stoppée !', `${r.combo.nom} à ${r.total} contre ${S.cible}.`, 'gagne'],
       butAdverse: ['feu', 'But adverse', `Ta défense (${r.total}) n'a rien pu faire contre ${S.cible}.`, 'perd']
     }[ph] || ['ballon', '', '', ''];
@@ -145,10 +145,11 @@ function detailCalcul(r) {
 }
 function majJauge(total) {
   const g = document.querySelector('.jauge .rempli'); if (!g) return;
-  const pct = Math.min(100, total / (S.cible * 1.3) * 100);
+  const pct = Math.min(100, total / (refCible() * 1.3) * 100);
   g.style.transform = `scaleX(${pct / 100})`;
-  const sb = enAttaque() ? seuilBut() : 1;
-  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
+  const sb = enAttaque() ? seuilBut() : 1, F = S.fourchette;
+  // avec une fourchette : vert seulement si c'est sûr, jaune rayé si ça peut passer
+  g.className = 'rempli ' + (S.comp === 'direct' && !S.duelAdv ? '' : F ? (total >= sb * F[1] ? 'ok' : total >= sb * F[0] ? 'peut' : total >= 0.7 * F[0] ? 'presque' : '') : total >= sb * S.cible ? 'ok' : total >= 0.7 * S.cible ? 'presque' : '');
 }
 function majCalcul() {
   const r = S.anim.r, p = document.querySelector('.boite-pts .n'), m = document.querySelector('.boite-mult .n'), t = document.querySelector('.total .n');
@@ -171,8 +172,8 @@ function changer() {
   Son.clic();
   if (!S.modeChange) { S.modeChange = true; S.sel = []; return zoneAction(); }
   if (!S.sel.length) { S.modeChange = false; return zoneAction(); }
-  S.sel.forEach(c => { S.main = S.main.filter(x => x.id !== c.id); S.defausse.push(c); });
-  S.changements--; S.sel = []; S.modeChange = false; S.dejaVu = false; piocher(); zoneAction();
+  const n = S.sel.length; S.sel.forEach(c => { S.main = S.main.filter(x => x.id !== c.id); S.defausse.push(c); });
+  S.changements--; S.sel = []; S.modeChange = false; S.dejaVu = false; piocher(n); zoneAction();
 }
 async function jouer(force) {
   if (S.phase !== 'choix' || (!S.sel.length && force !== true)) return;
@@ -324,7 +325,7 @@ function resoudreTir(t, pen) {
 function rafraichirTableau() { const s = document.querySelector('#tableau .sc'); if (s) s.innerHTML = `${S.score.p}<span>-</span>${S.score.ia}`; }
 function suiteTF() {
   Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.duelAdv = null; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
-  const go = () => { piocher(); preparerTF(); };
+  const go = () => { piocher(PIOCHE_TF); preparerTF(); };
   const e = S.comp === 'defi' || S.comp === 'direct' ? null : tirerEvenement(); if (!e) return go();
   const T = TEXTE_EVT[e.id](e);
   modal(`${img(T.ic, 'grande-ic')}<h1 class="lil">${T.titre}</h1><p>${T.txt}</p><div class="btns col">${T.a ? `<button class="btn" id="eA">${T.a}</button><button class="btn sec" id="eB">${T.b}</button>` : `<button class="btn" id="eA">Continuer</button>`}</div>`, () => {

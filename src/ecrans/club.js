@@ -171,6 +171,17 @@ function intro() {
     { qui: 'dede', ic: 'capitaine', txt: `Je t'ai trouvé un Capitaine. Quand on est mené, il double tout. Et passe voir les gamins du centre de formation : l'avenir du club, c'est eux.`, bouton: 'Au vestiaire' }
   ], () => hub('vestiaire'));
 }
+function ecranReglages() {
+  const R = reglages(), opt = (k, v, t, d) => `<button class="choix-rgl ${R[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}"><b>${t}</b><small>${d}</small></button>`;
+  modal(`<h1 class="lil">Réglages</h1>
+    <h2 class="lil">Niveau</h2><div class="rgl">${opt('difficulte', 'facile', 'Facile', 'Adversaires plus faibles, mur affiché au point près. Idéal pour débuter.')}${opt('difficulte', 'normal', 'Normal', 'Le vrai défi : mur annoncé en fourchette, adversaires plus coriaces.')}</div>
+    <h2 class="lil">Indices</h2><div class="rgl">${opt('indices', true, 'Avec indices', 'Une piste sous l’Attaquer : combinaison à une carte près.')}${opt('indices', false, 'Sans indice', 'À toi de tout voir.')}</div>
+    <p class="petit">Réglages de ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
+    <div class="btns"><button class="btn" id="rOk">OK</button></div>`, () => {
+    document.querySelectorAll('.choix-rgl').forEach(b => (b.onclick = () => { Son.clic(); changerReglage(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); ecranReglages(); }));
+    $('#rOk').onclick = fermerModal;
+  });
+}
 function regles() {
   modal(`<h1 class="lil">Comment jouer</h1>
     <div class="regles">
@@ -178,7 +189,8 @@ function regles() {
       <div>${img('gemme')}<span><b>Couleurs</b> : chaque joueur a une couleur (bandeau en bas de la carte). 3 cartes de la même couleur : <b>Trio</b>, +1 au combo. 4 : <b>Carton plein</b>, +2.</span></div>
       <div>${img('epees')}<span><b>Consignes</b> : 0 point, jouables en attaque comme en défense. Elles prennent une place dans l'action mais préparent le temps fort suivant (Contre-pied ×1,5, Pressing haut −20 % à l'adversaire...).</span></div>
       <div>${img('etoile')}<span>Joue <b>jusqu'à 4 cartes</b>. Leurs points s'additionnent, la <b>combinaison</b> les multiplie.</span></div>
-      <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>.</span></div>
+      <div>${img('mur')}<span>En attaque, dépasse le <b>mur</b>. En défense, atteins la force de <b>leur attaque</b>. Au niveau Normal, ils sont annoncés en <b>fourchette</b> : la vraie valeur se révèle après ton choix.</span></div>
+      <div>${img('sablier')}<span>Après chaque temps fort, tu ne pioches que <b>3 cartes</b> (main pleine à la mi-temps). Tout donner maintenant, ou garder des cartes pour la suite ?</span></div>
       <div>${img('filet')}<span>Presque (70 %) : un <b>tir</b> où l'on choisit son côté.</span></div>
       <div>${img('tactique')}<span>Coups francs, corners, contres éclair et penalties pimentent les matchs.</span></div>
       <div>${img('gemme')}<span>Entre les matchs : récompenses, boutique, améliorations, dilemmes de vestiaire.</span></div>
@@ -195,7 +207,7 @@ function hub(onglet) {
   ONGLET = onglet || ONGLET; document.body.className = 'hub'; Son.tension(0);
   barreHaut();
   const cl = clubPar(C.club);
-  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
+  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
   const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
@@ -222,6 +234,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
       : C.migre ? `Le championnat a changé : on joue maintenant contre tous les vrais clubs de la division, en matchs aller. Ton paquet, tes stars et tes pièces sont intactes. On repart du début de saison.`
       : fenetreMercato() && C.journee > 0 ? `Le mercato d'hiver est ouvert. Si un poste te manque, c'est le moment.`
@@ -249,7 +262,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10) { C.migre = false; C.nouveautesV10 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); lancerMatch(); };
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));

@@ -17,7 +17,7 @@ for(let k=0;k<400;k++){
       if(typeof activerConsignes==='function') activerConsignes(b.sel);
       retirerJouees(b.sel);
     }
-    S.tf++; piocher(); preparerTF();
+    S.tf++; piocher(PIOCHE_TF); preparerTF();
   }
 }
 console.log('temps forts',tot,'| coup ≠ 4 plus fortes :',(diff/tot*100).toFixed(0)+'%','| avec consigne',(avecConsigne/tot*100).toFixed(0)+'%','| bonus couleur',(couleur/tot*100).toFixed(0)+'%','dont carton plein',(carton/tot*100).toFixed(0)+'%');

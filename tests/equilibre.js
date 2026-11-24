@@ -11,7 +11,7 @@ function jouerMatchAuto(skill,m){
    if(t==='occasion'||t==='tirAdverse') tir={marque:Math.random()<2/3};
    finTempsFort(t,r,tir); retirerJouees(sel); activerConsignes(sel);
   }
-  S.tf++; piocher(); preparerTF();
+  S.tf++; piocher(PIOCHE_TF); preparerTF();
  }
  return [S.score.p,S.score.ia];
 }

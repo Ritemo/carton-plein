@@ -2,9 +2,9 @@
 // =====================================================================
 // MATCH (S)
 // =====================================================================
-const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.15, r: 0.32 };
+const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.2, r: 0.32 };
 let S = null;
-const NB_TF = 6, CHANGEMENTS = 3;
+const NB_TF = 6, CHANGEMENTS = 3, PIOCHE_TF = 3; // après chaque temps fort, on ne pioche que 3 cartes (main pleine à la mi-temps)
 const aStar = id => S && S.stars.includes(id);
 function nouveauMatch(m, auto, opts) {
   m = m || prochainMatch(); const oppId = m.opp;
@@ -32,8 +32,9 @@ function activerConsignes(sel) {
     if (c.t === 'relance') { for (let i = 0; i < 2; i++) { if (!S.pioche.length) { S.pioche = melanger(S.defausse); S.defausse = []; } if (S.pioche.length) S.main.push(S.pioche.pop()); } }
   });
 }
-function piocher() {
-  while (S.main.length < tailleMain()) {
+function piocher(n) {
+  let reste = n == null ? Infinity : n;
+  while (S.main.length < tailleMain() && reste-- > 0) {
     if (!S.pioche.length) { S.pioche = melanger(S.defausse); S.defausse = []; if (!S.pioche.length) return; }
     S.main.push(S.pioche.pop());
   }
@@ -103,6 +104,7 @@ function preparerTF() {
   S.advAnnulee = null;
   if (aStar('anticipe') && S.adv.length) { const mi = S.tf < NB_TF / 2 ? 1 : 2; S.strat = S.strat || {}; if (!S.strat[mi]) { S.strat[mi] = true; S.advAnnulee = S.adv.shift(); } }
   S.adv.forEach(k => { if (CARTES_ADV[k].cible) S.cible = Math.round(S.cible * CARTES_ADV[k].cible); });
+  fixerFourchette();
   S.sel = []; S.phase = 'choix'; S.res = null; S.modeChange = false;
   if (S.tf === NB_TF / 2) piocher();
   if (typeof afficherMatch === 'function' && !S.auto) afficherMatch();
@@ -208,6 +210,7 @@ function possibilites() {
 // Indice : une piste, jamais la solution. Sans sélection, on dit seulement combien de combinaisons
 // la main cache. Avec une sélection, on signale la combinaison à une carte près, si cette carte est en main.
 function indice() {
+  if (!reglages().indices) return '';
   const att = enAttaque(), max = maxJouees(), sel = S.sel;
   const main = S.main.filter(c => TYPES[c.t].att === att && !sel.includes(c));
   if (!sel.length) {
@@ -256,6 +259,14 @@ function meilleurCoup(brut) {
   }
   return { sel: best, total: btot };
 }
+// mur approximatif (niveau Normal) : on annonce une fourchette, la vraie valeur est quelque part dedans
+function fixerFourchette() {
+  S.fourchette = null;
+  if (S.tuto || S.comp === 'direct' || (reglages().difficulte === 'facile' && S.comp !== 'defi')) return;
+  const w = Math.max(6, Math.round(S.cible * 0.2)), off = rnd(w + 1);
+  S.fourchette = [S.cible - off, S.cible - off + w];
+}
+const refCible = () => (S.fourchette ? (S.fourchette[0] + S.fourchette[1]) / 2 : S.cible);
 function seuilBut() { return aStar('buteur') ? 0.85 : 1; }
 function issue(r) {
   const ratio = r.total / S.cible;
