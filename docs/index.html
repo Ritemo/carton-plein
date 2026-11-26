@@ -1007,7 +1007,7 @@ function bilanMatch(tab) {
   const sc = `${clubPar(C.club).court} ${gp} - ${gc} ${clubPar(opp).court}` + (tab ? ` (t.a.b. ${tab.p}-${tab.ia})` : '');
   C.journal.unshift({ rival: rivalTxt, s: C.saison, j: C.journee + 1, div: C.div, pays: C.pays, comp: coupe ? `${coupe.nom} · ${coupe.tourJoue}` : null, txt: une, score: sc, opp });
   if (C.journal.length > 60) C.journal.length = 60;
-  if (comp === 'ligue') { C.journee++; majMercato(); }
+  if (comp === 'ligue') { C.journee++; majMercato(); C.offres = null; } // les offres de l'été expirent au 1er match
   progresserJeunes(comp === 'ligue' ? 1 : 0.6);
   // récompense au choix seulement après une victoire (ou une qualification)
   const recompenses = (gp > gc || (coupe && coupe.qualifie)) ? genRecompenses(comp === 'eur') : [];
@@ -2742,6 +2742,7 @@ function vestiaire() {
       <div class="pm-detail">${STYLES[opp.style].txt}. Météo : ${met.txt.toLowerCase()}.${C.ansD1 ? ` Réputation ${C.ansD1} : tout le monde te prend au sérieux, adversaires +${Math.round(DIFF.r * C.ansD1 * 100)} %.` : ''}</div>
       <button class="btn gros large" id="bJouer">${COOP && C.coop.relais ? 'Jouer la 2e mi-temps' : COOP ? 'Jouer la 1re mi-temps' : ligue ? 'Jouer le match' : 'Jouer le ' + m.tour.toLowerCase()}</button>
     </div>
+    ${C.offres && C.offres.length && C.journee === 0 && !COOP ? `<button class="coupe-ligne mercato" id="bOffres" data-merc="1">${img('poignee')}<b class="lil">${C.offres.length} club${C.offres.length > 1 ? 's' : ''} te ${C.offres.length > 1 ? 'veulent' : 'veut'}</b><small>Voir les offres avant le 1er match</small></button>` : ''}
     ${fenetreMercato() ? `<button class="coupe-ligne mercato" id="bMerc" data-merc="1">${img('poignee')}<b class="lil">Mercato ${fenetreMercato() === 'ete' ? 'd’été' : 'd’hiver'} ouvert</b><small>${C.mercato ? C.mercato.liste.length : 0} joueurs à recruter</small></button>` : ''}
     ${coupesResume()}
     ${objectifsHTML()}
@@ -2753,6 +2754,7 @@ function vestiaire() {
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
   brancherBandeauCoop();
   proposerFacile();
+  on('bOffres', () => { Son.clic(); choixOffres(); });
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));
@@ -3786,7 +3788,7 @@ function verserPrimeSolo() {
   const types = Object.keys(TYPES).filter(t => !TYPES[t].consigne && !TYPES[t].special);
   for (let i = 0; i < b.rares; i++) { const t = pick(types); C.cartes.push(nouvelleCarte(t, jiPourType(t), 'rare')); }
   p.bonusSolo = { pieces: 0, rares: 0 }; majProfil(p); sauver();
-  modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); hub(ONGLET || 'vestiaire'); }));
+  modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); barreHaut(); }));
 }
 
 // clubs coop affichés : sans ceux que j'ai retirés, ni les doublons vides (même club, créé seul, jamais joué)

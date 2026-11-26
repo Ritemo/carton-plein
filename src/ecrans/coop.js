@@ -43,7 +43,7 @@ function verserPrimeSolo() {
   const types = Object.keys(TYPES).filter(t => !TYPES[t].consigne && !TYPES[t].special);
   for (let i = 0; i < b.rares; i++) { const t = pick(types); C.cartes.push(nouvelleCarte(t, jiPourType(t), 'rare')); }
   p.bonusSolo = { pieces: 0, rares: 0 }; majProfil(p); sauver();
-  modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); hub(ONGLET || 'vestiaire'); }));
+  modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); barreHaut(); }));
 }
 
 // clubs coop affichés : sans ceux que j'ai retirés, ni les doublons vides (même club, créé seul, jamais joué)

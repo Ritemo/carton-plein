@@ -211,7 +211,7 @@ function bilanMatch(tab) {
   const sc = `${clubPar(C.club).court} ${gp} - ${gc} ${clubPar(opp).court}` + (tab ? ` (t.a.b. ${tab.p}-${tab.ia})` : '');
   C.journal.unshift({ rival: rivalTxt, s: C.saison, j: C.journee + 1, div: C.div, pays: C.pays, comp: coupe ? `${coupe.nom} · ${coupe.tourJoue}` : null, txt: une, score: sc, opp });
   if (C.journal.length > 60) C.journal.length = 60;
-  if (comp === 'ligue') { C.journee++; majMercato(); }
+  if (comp === 'ligue') { C.journee++; majMercato(); C.offres = null; } // les offres de l'été expirent au 1er match
   progresserJeunes(comp === 'ligue' ? 1 : 0.6);
   // récompense au choix seulement après une victoire (ou une qualification)
   const recompenses = (gp > gc || (coupe && coupe.qualifie)) ? genRecompenses(comp === 'eur') : [];
