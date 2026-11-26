@@ -5,7 +5,7 @@ F = pathlib.Path(__file__).resolve().parents[2].joinpath('docs', 'index.html').a
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 390, 'height': 844})
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto(F); pg.evaluate("()=>{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-cloud','')}"); pg.reload(); pg.wait_for_timeout(500)
+    pg.goto(F); pg.evaluate("()=>{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({code:Math.random().toString(36).slice(2,10).toUpperCase().padEnd(8,'X'),pseudo:'',niveauChoisi:true}));localStorage.setItem('carton-plein-cloud','')}"); pg.reload(); pg.wait_for_timeout(500)
     pg.evaluate("()=>{nouvelleCarriere('amiens'); C.pieces=123; sauver(); hub('vestiaire')}"); pg.wait_for_timeout(400)
     pg.click('#bMenu'); pg.wait_for_timeout(300); pg.click('#mSauv'); pg.wait_for_timeout(400)
     pg.screenshot(path='/tmp/audit/sauvegarde.png')

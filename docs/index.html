@@ -629,6 +629,9 @@ body.direct .jauge .repere{display:none}
 .coop-l{display:flex;align-items:center;gap:10px;width:100%;text-align:left;color:inherit;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);border-radius:14px;padding:8px 10px;margin:6px 0;min-height:44px}
 .coop-l small{display:block;font-size:12px;opacity:.8}
 .coop-l .coop-tour{color:#ffd84d;opacity:1;font-weight:700}
+.coop-ligne{display:flex;align-items:center;gap:6px}
+.coop-ligne .coop-l{flex:1;min-width:0}
+.btn:disabled{opacity:.55}
 
 </style>
 </head>
@@ -2451,7 +2454,9 @@ function publier(txt, type, pour) { const p = profil(); if (!urlCloud() || !p.ps
 
 // réglages de ce téléphone : niveau et indices
 const reglages = () => Object.assign({ difficulte: 'normal', indices: true }, profil().reglages || {}, C && C.coop && C.coop.niveau ? { difficulte: C.coop.niveau } : {});
-function changerReglage(k, v) { const p = profil(); p.reglages = Object.assign(reglages(), { [k]: v }); majProfil(p); }
+function changerReglage(k, v) {
+  if (k === 'difficulte' && COOP && C && C.coop) { C.coop.niveau = v; sauver(); return; } // en coop : niveau du club, partagé
+  const p = profil(); p.reglages = Object.assign({ difficulte: 'normal', indices: true }, p.reglages || {}, { [k]: v }); p.niveauChoisi = true; majProfil(p); }
 
 // =====================================================================
 // CARTON PLEIN : écrans
@@ -2609,7 +2614,7 @@ function choixClub(pays) {
     <div class="grille-clubs">${clubs.filter(c => groupes.length < 2 || c.g === GROUPE_VU).map(tuile).join('')}</div></div>`, 'plein');
   document.querySelectorAll('[data-grp]').forEach(b => (b.onclick = () => { Son.clic(); GROUPE_VU = b.dataset.grp; choixClub(pays); }));
   $('#bRet').onclick = () => { Son.clic(); choixPays(); };
-  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); if (COOP_CREATION) return finCreationCoop(b.dataset.id); nouvelleCarriere(b.dataset.id); intro(); }));
+  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); if (COOP_CREATION) return finCreationCoop(b.dataset.id); nouvelleCarriere(b.dataset.id); profil().niveauChoisi ? intro() : choisirNiveau(intro); }));
 }
 async function scenes(liste, fin) {
   let i = 0;
@@ -2629,12 +2634,33 @@ function intro() {
     { qui: 'dede', ic: 'capitaine', txt: `Je t'ai trouvé un Capitaine. Quand on est mené, il double tout. Et passe voir les gamins du centre de formation : l'avenir du club, c'est eux.`, bouton: 'Au vestiaire' }
   ], () => hub('vestiaire'));
 }
+// au début d'une carrière : le niveau, une fois pour toutes (modifiable ensuite dans Réglages)
+function choisirNiveau(suite) {
+  modal(`${img('dede', 'grande-ic')}<h1 class="lil">Quel niveau ?</h1><p class="petit">Tu pourras changer plus tard dans le menu, Réglages.</p><div class="rgl">
+    <button class="choix-rgl" data-niv="facile"><b>Facile</b><small>Pour découvrir, ou pour les plus jeunes. Adversaires plus faibles, mur affiché au point près.</small></button>
+    <button class="choix-rgl" data-niv="normal"><b>Normal</b><small>Le vrai défi : mur en fourchette, adversaires coriaces.</small></button></div>`, () => {
+    document.querySelectorAll('[data-niv]').forEach(b => (b.onclick = () => { Son.clic(); changerReglage('difficulte', b.dataset.niv); fermerModal(); suite(); }));
+  });
+}
+// série sans victoire au niveau Normal : Dédé propose le Facile (une fois par série)
+function proposerFacile() {
+  if (COOP || !C || !C.carnet || reglages().difficulte !== 'normal') return;
+  const L = (C.carnet.derniers || []).filter(m => m.comp === 'ligue' && m.s === C.saison).slice(0, 5), p = profil();
+  if (L.length < 5 || L.some(m => { const [a, b] = m.score.split('-').map(Number); return a > b; })) return;
+  if (p.propFacile && p.propFacile.s === C.saison && C.journee - p.propFacile.j < 6) return;
+  p.propFacile = { s: C.saison, j: C.journee }; majProfil(p);
+  modal(`${img('dede', 'grande-ic')}<h1 class="lil">Coup de main ?</h1><p>Cinq matchs sans victoire... Ça arrive aux meilleurs. Tu veux passer en <b>Facile</b> le temps de reprendre confiance ? Tu pourras revenir en Normal quand tu veux (menu, Réglages).</p>
+    <div class="btns col"><button class="btn" id="fOui">Passer en Facile</button><button class="btn sec" id="fNon">Non, je m’accroche</button></div>`, () => {
+    $('#fOui').onclick = () => { changerReglage('difficulte', 'facile'); fermerModal(); toast('Niveau Facile'); };
+    $('#fNon').onclick = fermerModal;
+  });
+}
 function ecranReglages() {
   const R = reglages(), opt = (k, v, t, d) => `<button class="choix-rgl ${R[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}"><b>${t}</b><small>${d}</small></button>`;
   modal(`<h1 class="lil">Réglages</h1>
     <h2 class="lil">Niveau</h2><div class="rgl">${opt('difficulte', 'facile', 'Facile', 'Adversaires plus faibles, mur affiché au point près. Idéal pour débuter.')}${opt('difficulte', 'normal', 'Normal', 'Le vrai défi : mur annoncé en fourchette, adversaires plus coriaces.')}</div>
     <h2 class="lil">Indices</h2><div class="rgl">${opt('indices', true, 'Avec indices', 'Une piste sous l’Attaquer : combinaison à une carte près.')}${opt('indices', false, 'Sans indice', 'À toi de tout voir.')}</div>
-    <p class="petit">Réglages de ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
+    <p class="petit">${COOP ? 'En coop, le niveau est celui du club : il change aussi pour ton coéquipier. ' : ''}Les indices sont propres à ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
     <div class="btns"><button class="btn" id="rOk">OK</button></div>`, () => {
     document.querySelectorAll('.choix-rgl').forEach(b => (b.onclick = () => { Son.clic(); changerReglage(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); ecranReglages(); }));
     $('#rOk').onclick = fermerModal;
@@ -2726,6 +2752,7 @@ function vestiaire() {
   if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
   brancherBandeauCoop();
+  proposerFacile();
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));
@@ -3448,10 +3475,19 @@ async function chargerSocial(force) {
 }
 function majPastilleAmis() {
   const b = document.querySelector('.onglet[data-o="amis"]'); if (!b) return;
-  const p = profil(), n = nonLus() + invitations().length + ((SOCIAL && SOCIAL.coops) || []).filter(c => c.relais && c.relais.par !== p.code).length, i = b.querySelector('.pastille-notif');
+  const p = profil(), n = nonLus() + invitations().length + coopsVisibles(SOCIAL && SOCIAL.coops).filter(c => c.relais && c.relais.par !== p.code).length, i = b.querySelector('.pastille-notif');
   if (n && !i) b.insertAdjacentHTML('beforeend', '<i class="pastille-notif"></i>'); else if (!n && i) i.remove();
 }
-const invitations = () => { if (!SOCIAL) return []; const p = profil(); return SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 20 * 60000); };
+// invitations en direct : la plus récente de chaque ami, moins de 10 minutes, ni utilisée ni écartée
+const salonsVus = () => profil().salonsVus || [];
+function oublierSalon(id) { const p = profil(); p.salonsVus = [...salonsVus(), id].slice(-30); majProfil(p); }
+const invitations = () => {
+  if (!SOCIAL) return []; const p = profil(), vus = salonsVus(), parAmi = {};
+  SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 10 * 60000 && !vus.includes(m.salon)).forEach(m => { if (!parAmi[m.de] || parAmi[m.de].t < m.t) parAmi[m.de] = m; });
+  return Object.values(parAmi);
+};
+// un seul envoi par toucher : le bouton reste grisé pendant l'appel au serveur
+async function unSeul(btn, f) { if (btn && btn.disabled) return; if (btn) btn.disabled = true; try { await f(); } finally { if (btn && btn.isConnected) btn.disabled = false; } }
 
 // ---------- écran principal ----------
 function amis() {
@@ -3470,8 +3506,8 @@ function amis() {
     <div class="soc-bloc"><div class="soc-t lil">${img('journal', 'mini-ic')} Fil d’actualité</div><div id="sFil"><p class="petit">Chargement…</p></div></div>
   </div>`);
   $('#sPartage').onclick = async () => { const t = `Ajoute-moi dans Carton Plein : mon code ami est ${p.code}`; try { if (navigator.share) await navigator.share({ text: t }); else { await navigator.clipboard.writeText(t); toast('Code copié'); } } catch (e) { } };
-  $('#sAjout').onclick = () => ajouterAmi($('#sCode').value);
-  $('#sCree').onclick = () => creerDirect(null);
+  $('#sAjout').onclick = e => unSeul(e.currentTarget, () => ajouterAmi($('#sCode').value));
+  $('#sCree').onclick = e => unSeul(e.currentTarget, () => creerDirect(null));
   $('#sRejoint').onclick = rejoindreDirectCode;
   $('#sCoop').onclick = ecranCoop;
   brancherAmis();
@@ -3485,22 +3521,23 @@ function listeAmisHTML() {
       <div class="ami-b"><button class="btn petit-btn" data-ombre="${a.code}" aria-label="Jouer contre son ombre">${img('epees', 'mini-ic')}</button><button class="btn sec petit-btn" data-msg="${a.code}" aria-label="Messages">💬${n ? `<i class="pastille-notif"></i>` : ''}</button><button class="btn sec petit-btn" data-direct="${a.code}" aria-label="Inviter en direct">⚡</button></div></div>`; }).join('');
 }
 function brancherAmis() {
-  document.querySelectorAll('[data-ombre]').forEach(b => (b.onclick = () => lancerOmbre(b.dataset.ombre)));
+  document.querySelectorAll('[data-ombre]').forEach(b => (b.onclick = () => unSeul(b, () => lancerOmbre(b.dataset.ombre))));
   document.querySelectorAll('[data-msg]').forEach(b => (b.onclick = () => conversation(b.dataset.msg)));
-  document.querySelectorAll('[data-direct]').forEach(b => (b.onclick = () => creerDirect(b.dataset.direct)));
+  document.querySelectorAll('[data-direct]').forEach(b => (b.onclick = () => unSeul(b, () => creerDirect(b.dataset.direct))));
 }
 function remplirSocial(S0) {
   if (!S0 || !$('#sFil')) return;
   const p = profil();
   $('#sAmis').innerHTML = listeAmisHTML(); brancherAmis();
   // clubs coop où c'est à moi de jouer
-  const aMoi = (S0.coops || []).filter(c => c.relais && c.relais.par !== p.code);
+  const aMoi = coopsVisibles(S0.coops).filter(c => c.relais && c.relais.par !== p.code);
   $('#sCoops').innerHTML = aMoi.map(c => `<div class="soc-invit">${img('poignee', 'mini-ic')}<span><b>${echap(c.relais.pseudo)}</b> t’attend pour la 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</span><button class="btn" data-coopj="${c.id}">Jouer</button></div>`).join('');
-  document.querySelectorAll('[data-coopj]').forEach(b => (b.onclick = () => entrerCoop(b.dataset.coopj)));
+  document.querySelectorAll('[data-coopj]').forEach(b => (b.onclick = () => unSeul(b, () => entrerCoop(b.dataset.coopj))));
   // invitations à un match en direct
   const inv = invitations();
-  $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button></div>`).join('');
-  document.querySelectorAll('[data-salon]').forEach(b => (b.onclick = () => rejoindreDirect(b.dataset.salon)));
+  $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button><button class="btn sec petit-btn" data-oubli="${m.salon}" aria-label="Ignorer">✕</button></div>`).join('');
+  document.querySelectorAll('[data-salon]').forEach(b => (b.onclick = () => unSeul(b, () => rejoindreDirect(b.dataset.salon))));
+  document.querySelectorAll('[data-oubli]').forEach(b => (b.onclick = () => { oublierSalon(b.dataset.oubli); remplirSocial(SOCIAL); majPastilleAmis(); }));
   // fil
   const fil = [...S0.fil].reverse();
   $('#sFil').innerHTML = fil.length ? fil.map(x => `<div class="fil-l ${x.pour === p.code ? 'pour-moi' : ''}"><b>${echap(x.de === p.code ? 'Toi' : x.pseudo)}</b> ${echap(x.txt)}<small>${ilYa(x.t)}</small></div>`).join('') : '<p class="petit">Rien pour l’instant. Les trophées, montées et matchs entre amis s’afficheront ici.</p>';
@@ -3535,6 +3572,7 @@ async function ajouterAmi(code) {
 }
 
 // ---------- messages ----------
+let ENVOI = false;
 const RAPIDES = ['Bien joué !', 'Revanche ?', 'Trop fort 😄', 'On joue ce soir ?', '⚽🔥'];
 function conversation(code) {
   const p = profil(), a = amisListe().find(x => x.code === code) || { code };
@@ -3546,7 +3584,7 @@ function conversation(code) {
       <div class="soc-ajout"><input id="mTxt" class="zone-txt" maxlength="200" placeholder="Message"><button class="btn" id="mEnv">Envoyer</button></div>
       <div class="btns"><button class="btn sec" id="mFer">Fermer</button></div>`, () => {
       const cv = $('#conv'); cv.scrollTop = cv.scrollHeight;
-      const envoyer = async txt => { if (!txt.trim()) return; try { await apiEcrire('message', { de: p.code, a: code, pseudo: p.pseudo, txt }); await chargerSocial(true); rendre(); } catch (e) { toast(e.message); } };
+      const envoyer = async txt => { if (!txt.trim() || ENVOI) return; ENVOI = true; try { await apiEcrire('message', { de: p.code, a: code, pseudo: p.pseudo, txt }); await chargerSocial(true); ENVOI = false; rendre(); } catch (e) { ENVOI = false; toast(e.message); } };
       $('#mEnv').onclick = () => envoyer($('#mTxt').value);
       document.querySelectorAll('[data-r]').forEach(b => (b.onclick = () => envoyer(RAPIDES[+b.dataset.r])));
       $('#mFer').onclick = () => { fermerModal(); if (ONGLET === 'amis') hub('amis'); };
@@ -3620,7 +3658,7 @@ function ecranFinAmical() {
 // L'hôte attaque aux temps forts pairs, l'invité aux impairs. Chaque téléphone envoie ses choix
 // (total de cartes, tir, plongeon) puis attend ceux de l'autre. Le résultat se calcule pareil des deux côtés.
 let DIRECT = null;
-const POLL_MS = 1500, PATIENCE_MS = 90000;
+const POLL_MS = 1500, PATIENCE_MS = 180000;
 const moiJoueur = () => { const p = profil(); return { code: p.code, pseudo: p.pseudo, club: C.club }; };
 
 async function creerDirect(codeAmi) {
@@ -3653,9 +3691,9 @@ function rejoindreDirectCode() {
 async function rejoindreDirect(id, erreur) {
   try {
     const j = await apiEcrire('salonRejoindre', { id: (id || '').toUpperCase().trim(), joueur: moiJoueur() }), s = j.salon;
-    DIRECT = { id: s.id, role: 'invite', graine: s.graine, adv: s.hote, actif: true };
+    DIRECT = { id: s.id, role: 'invite', graine: s.graine, adv: s.hote, actif: true }; oublierSalon(s.id);
     fermerModal(); demarrerDirect();
-  } catch (e) { erreur ? erreur(e.message) : toast(e.message); }
+  } catch (e) { oublierSalon((id || '').toUpperCase().trim()); erreur ? erreur(e.message) : toast(e.message); if (!erreur && ONGLET === 'amis') remplirSocial(SOCIAL); }
 }
 function quitterDirect() { if (DIRECT) DIRECT.actif = false; DIRECT = null; }
 function demarrerDirect() {
@@ -3680,7 +3718,7 @@ async function echanger(cle, valeur) {
 }
 function afficherPatience() {
   const bt = $('#actions'); if (!bt) return;
-  bt.innerHTML = `<button class="btn sec" id="bAband">${echap(S.ami.pseudo)} ne répond plus : arrêter</button>`;
+  bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} réfléchit longtemps…</div><button class="btn sec" id="bAband">Arrêter le match</button>`;
   $('#bAband').onclick = () => { quitterDirect(); S = null; hub('amis'); };
 }
 // temps fort : mon total contre le sien
@@ -3751,6 +3789,13 @@ function verserPrimeSolo() {
   modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); hub(ONGLET || 'vestiaire'); }));
 }
 
+// clubs coop affichés : sans ceux que j'ai retirés, ni les doublons vides (même club, créé seul, jamais joué)
+function coopsVisibles(L) {
+  L = L || []; const p = profil(), caches = p.coopsCaches || [];
+  return L.filter(c => !caches.includes(c.id) && !(c.membres.length === 1 && !(c.journee > 0) && L.some(o => o.id !== c.id && o.club === c.club && o.membres.length === 2)));
+}
+function retirerCoop(id) { const p = profil(); p.coopsCaches = [...(p.coopsCaches || []), id]; majProfil(p); }
+
 // ---------- écran : mes carrières coop ----------
 async function ecranCoop() {
   if (!urlCloud()) return toast('Il faut la sauvegarde automatique (menu, Sauvegarde)');
@@ -3762,11 +3807,12 @@ async function ecranCoop() {
   try {
     const j = await chargerSocial(true);
     if (j && j.v < 3) throw new Error('le script Google doit être mis à jour (nouvelle version du déploiement).');
-    const L = (j && j.coops) || [];
+    const L = coopsVisibles(j && j.coops);
     const el = $('#cListe'); if (!el) return;
     el.innerHTML = L.length ? L.map(c => { const cl = clubPar(c.club), aMoi = c.relais && c.relais.par !== p.code, autre = c.pseudos.find((x, i) => c.membres[i] !== p.code) || 'en attente d’un coéquipier';
-      return `<button class="coop-l" data-coop="${c.id}">${cl ? blason(cl, 36) : ''}<div><b>${cl ? echap(cl.nom) : c.club}</b><small>avec ${echap(autre)} · saison ${c.saison || 1}, journée ${(c.journee || 0) + 1}</small>${aMoi ? `<small class="coop-tour">À toi : 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</small>` : ''}</div></button>`; }).join('') : '<p class="petit">Pas encore de club coop.</p>';
-    document.querySelectorAll('[data-coop]').forEach(b => (b.onclick = () => entrerCoop(b.dataset.coop)));
+      return `<div class="coop-ligne"><button class="coop-l" data-coop="${c.id}">${cl ? blason(cl, 36) : ''}<div><b>${cl ? echap(cl.nom) : c.club}</b><small>avec ${echap(autre)} · saison ${c.saison || 1}, journée ${(c.journee || 0) + 1} · code ${c.id}</small>${aMoi ? `<small class="coop-tour">À toi : 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</small>` : ''}</div></button><button class="btn sec petit-btn" data-retire="${c.id}" aria-label="Retirer de ma liste">✕</button></div>`; }).join('') : '<p class="petit">Pas encore de club coop.</p>';
+    document.querySelectorAll('[data-coop]').forEach(b => (b.onclick = () => unSeul(b, () => entrerCoop(b.dataset.coop))));
+    document.querySelectorAll('[data-retire]').forEach(b => (b.onclick = () => { retirerCoop(b.dataset.retire); ecranCoop(); }));
   } catch (e) { const el = $('#cListe'); if (el) el.innerHTML = `<p class="petit">${echap(e.message)}</p>`; }
 }
 function creerCoopChoix() {
@@ -3783,6 +3829,8 @@ function creerCoopChoix() {
 }
 // appelé quand le club est choisi pendant une création coop
 async function finCreationCoop(clubId) {
+  if (!COOP_CREATION || COOP_CREATION.enCours) return;
+  COOP_CREATION.enCours = true;
   const choix = COOP_CREATION, p = profil();
   nouvelleCarriere(clubId);
   C.coop = { niveau: choix.niveau, membres: [{ code: p.code, pseudo: p.pseudo }], relais: null, bonus: {} };
@@ -3799,7 +3847,7 @@ async function finCreationCoop(clubId) {
 function rejoindreCoopCode() {
   modal(`<h1 class="lil">Rejoindre un club coop</h1><input id="cCode" class="zone-txt code-j" maxlength="6" autocapitalize="characters" placeholder="CODE DU CLUB"><p class="petit" id="cMsg"></p>
     <div class="btns"><button class="btn" id="cOk">Rejoindre</button><button class="btn sec" id="cNon">Annuler</button></div>`, () => {
-    $('#cOk').onclick = async () => { try { const p = profil(), id = $('#cCode').value.toUpperCase().trim(); await apiEcrire('coopRejoindre', { id, code: p.code, pseudo: p.pseudo }); fermerModal(); entrerCoop(id); } catch (e) { $('#cMsg').textContent = e.message; } };
+    $('#cOk').onclick = e => unSeul(e.currentTarget, async () => { try { const p = profil(), id = $('#cCode').value.toUpperCase().trim(); await apiEcrire('coopRejoindre', { id, code: p.code, pseudo: p.pseudo }); fermerModal(); entrerCoop(id); } catch (e) { $('#cMsg').textContent = e.message; } });
     $('#cNon').onclick = fermerModal;
   });
 }

@@ -37,6 +37,7 @@ with sync_playwright() as p:
     print('save', pg.evaluate("()=>localStorage.getItem('carton-plein-carriere-v1')===null"), pg.evaluate("()=>localStorage.getItem('carton-plein-tuto')"))
     # carrière + vestiaire avec objectifs et rival
     pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
+    pg.screenshot(path='/tmp/audit/tuto_niveau.png'); pg.click('[data-niv="facile"]'); pg.wait_for_timeout(400)
     for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
     pg.wait_for_timeout(300); pg.screenshot(path='/tmp/t_vest.png', full_page=True)
     pg.evaluate("()=>document.querySelector('#vue').scrollTo(0,9999)"); pg.wait_for_timeout(200); pg.screenshot(path='/tmp/t_vest2.png')

@@ -46,6 +46,13 @@ function verserPrimeSolo() {
   modal(`${img('poignee', 'grande-ic')}<h1 class="lil">Prime de la coop</h1><p>Tes matchs en coop rapportent à ta carrière solo : <b>+${b.pieces} pièces</b>${b.rares ? ` et <b>${b.rares} carte${b.rares > 1 ? 's' : ''} rare${b.rares > 1 ? 's' : ''}</b>` : ''}.</p><div class="btns"><button class="btn" id="pOk">Merci coach</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); hub(ONGLET || 'vestiaire'); }));
 }
 
+// clubs coop affichés : sans ceux que j'ai retirés, ni les doublons vides (même club, créé seul, jamais joué)
+function coopsVisibles(L) {
+  L = L || []; const p = profil(), caches = p.coopsCaches || [];
+  return L.filter(c => !caches.includes(c.id) && !(c.membres.length === 1 && !(c.journee > 0) && L.some(o => o.id !== c.id && o.club === c.club && o.membres.length === 2)));
+}
+function retirerCoop(id) { const p = profil(); p.coopsCaches = [...(p.coopsCaches || []), id]; majProfil(p); }
+
 // ---------- écran : mes carrières coop ----------
 async function ecranCoop() {
   if (!urlCloud()) return toast('Il faut la sauvegarde automatique (menu, Sauvegarde)');
@@ -57,11 +64,12 @@ async function ecranCoop() {
   try {
     const j = await chargerSocial(true);
     if (j && j.v < 3) throw new Error('le script Google doit être mis à jour (nouvelle version du déploiement).');
-    const L = (j && j.coops) || [];
+    const L = coopsVisibles(j && j.coops);
     const el = $('#cListe'); if (!el) return;
     el.innerHTML = L.length ? L.map(c => { const cl = clubPar(c.club), aMoi = c.relais && c.relais.par !== p.code, autre = c.pseudos.find((x, i) => c.membres[i] !== p.code) || 'en attente d’un coéquipier';
-      return `<button class="coop-l" data-coop="${c.id}">${cl ? blason(cl, 36) : ''}<div><b>${cl ? echap(cl.nom) : c.club}</b><small>avec ${echap(autre)} · saison ${c.saison || 1}, journée ${(c.journee || 0) + 1}</small>${aMoi ? `<small class="coop-tour">À toi : 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</small>` : ''}</div></button>`; }).join('') : '<p class="petit">Pas encore de club coop.</p>';
-    document.querySelectorAll('[data-coop]').forEach(b => (b.onclick = () => entrerCoop(b.dataset.coop)));
+      return `<div class="coop-ligne"><button class="coop-l" data-coop="${c.id}">${cl ? blason(cl, 36) : ''}<div><b>${cl ? echap(cl.nom) : c.club}</b><small>avec ${echap(autre)} · saison ${c.saison || 1}, journée ${(c.journee || 0) + 1} · code ${c.id}</small>${aMoi ? `<small class="coop-tour">À toi : 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</small>` : ''}</div></button><button class="btn sec petit-btn" data-retire="${c.id}" aria-label="Retirer de ma liste">✕</button></div>`; }).join('') : '<p class="petit">Pas encore de club coop.</p>';
+    document.querySelectorAll('[data-coop]').forEach(b => (b.onclick = () => unSeul(b, () => entrerCoop(b.dataset.coop))));
+    document.querySelectorAll('[data-retire]').forEach(b => (b.onclick = () => { retirerCoop(b.dataset.retire); ecranCoop(); }));
   } catch (e) { const el = $('#cListe'); if (el) el.innerHTML = `<p class="petit">${echap(e.message)}</p>`; }
 }
 function creerCoopChoix() {
@@ -78,6 +86,8 @@ function creerCoopChoix() {
 }
 // appelé quand le club est choisi pendant une création coop
 async function finCreationCoop(clubId) {
+  if (!COOP_CREATION || COOP_CREATION.enCours) return;
+  COOP_CREATION.enCours = true;
   const choix = COOP_CREATION, p = profil();
   nouvelleCarriere(clubId);
   C.coop = { niveau: choix.niveau, membres: [{ code: p.code, pseudo: p.pseudo }], relais: null, bonus: {} };
@@ -94,7 +104,7 @@ async function finCreationCoop(clubId) {
 function rejoindreCoopCode() {
   modal(`<h1 class="lil">Rejoindre un club coop</h1><input id="cCode" class="zone-txt code-j" maxlength="6" autocapitalize="characters" placeholder="CODE DU CLUB"><p class="petit" id="cMsg"></p>
     <div class="btns"><button class="btn" id="cOk">Rejoindre</button><button class="btn sec" id="cNon">Annuler</button></div>`, () => {
-    $('#cOk').onclick = async () => { try { const p = profil(), id = $('#cCode').value.toUpperCase().trim(); await apiEcrire('coopRejoindre', { id, code: p.code, pseudo: p.pseudo }); fermerModal(); entrerCoop(id); } catch (e) { $('#cMsg').textContent = e.message; } };
+    $('#cOk').onclick = e => unSeul(e.currentTarget, async () => { try { const p = profil(), id = $('#cCode').value.toUpperCase().trim(); await apiEcrire('coopRejoindre', { id, code: p.code, pseudo: p.pseudo }); fermerModal(); entrerCoop(id); } catch (e) { $('#cMsg').textContent = e.message; } });
     $('#cNon').onclick = fermerModal;
   });
 }

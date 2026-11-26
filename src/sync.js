@@ -68,4 +68,6 @@ function publier(txt, type, pour) { const p = profil(); if (!urlCloud() || !p.ps
 
 // réglages de ce téléphone : niveau et indices
 const reglages = () => Object.assign({ difficulte: 'normal', indices: true }, profil().reglages || {}, C && C.coop && C.coop.niveau ? { difficulte: C.coop.niveau } : {});
-function changerReglage(k, v) { const p = profil(); p.reglages = Object.assign(reglages(), { [k]: v }); majProfil(p); }
+function changerReglage(k, v) {
+  if (k === 'difficulte' && COOP && C && C.coop) { C.coop.niveau = v; sauver(); return; } // en coop : niveau du club, partagé
+  const p = profil(); p.reglages = Object.assign({ difficulte: 'normal', indices: true }, p.reglages || {}, { [k]: v }); p.niveauChoisi = true; majProfil(p); }

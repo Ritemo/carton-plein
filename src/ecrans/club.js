@@ -154,7 +154,7 @@ function choixClub(pays) {
     <div class="grille-clubs">${clubs.filter(c => groupes.length < 2 || c.g === GROUPE_VU).map(tuile).join('')}</div></div>`, 'plein');
   document.querySelectorAll('[data-grp]').forEach(b => (b.onclick = () => { Son.clic(); GROUPE_VU = b.dataset.grp; choixClub(pays); }));
   $('#bRet').onclick = () => { Son.clic(); choixPays(); };
-  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); if (COOP_CREATION) return finCreationCoop(b.dataset.id); nouvelleCarriere(b.dataset.id); intro(); }));
+  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); if (COOP_CREATION) return finCreationCoop(b.dataset.id); nouvelleCarriere(b.dataset.id); profil().niveauChoisi ? intro() : choisirNiveau(intro); }));
 }
 async function scenes(liste, fin) {
   let i = 0;
@@ -174,12 +174,33 @@ function intro() {
     { qui: 'dede', ic: 'capitaine', txt: `Je t'ai trouvé un Capitaine. Quand on est mené, il double tout. Et passe voir les gamins du centre de formation : l'avenir du club, c'est eux.`, bouton: 'Au vestiaire' }
   ], () => hub('vestiaire'));
 }
+// au début d'une carrière : le niveau, une fois pour toutes (modifiable ensuite dans Réglages)
+function choisirNiveau(suite) {
+  modal(`${img('dede', 'grande-ic')}<h1 class="lil">Quel niveau ?</h1><p class="petit">Tu pourras changer plus tard dans le menu, Réglages.</p><div class="rgl">
+    <button class="choix-rgl" data-niv="facile"><b>Facile</b><small>Pour découvrir, ou pour les plus jeunes. Adversaires plus faibles, mur affiché au point près.</small></button>
+    <button class="choix-rgl" data-niv="normal"><b>Normal</b><small>Le vrai défi : mur en fourchette, adversaires coriaces.</small></button></div>`, () => {
+    document.querySelectorAll('[data-niv]').forEach(b => (b.onclick = () => { Son.clic(); changerReglage('difficulte', b.dataset.niv); fermerModal(); suite(); }));
+  });
+}
+// série sans victoire au niveau Normal : Dédé propose le Facile (une fois par série)
+function proposerFacile() {
+  if (COOP || !C || !C.carnet || reglages().difficulte !== 'normal') return;
+  const L = (C.carnet.derniers || []).filter(m => m.comp === 'ligue' && m.s === C.saison).slice(0, 5), p = profil();
+  if (L.length < 5 || L.some(m => { const [a, b] = m.score.split('-').map(Number); return a > b; })) return;
+  if (p.propFacile && p.propFacile.s === C.saison && C.journee - p.propFacile.j < 6) return;
+  p.propFacile = { s: C.saison, j: C.journee }; majProfil(p);
+  modal(`${img('dede', 'grande-ic')}<h1 class="lil">Coup de main ?</h1><p>Cinq matchs sans victoire... Ça arrive aux meilleurs. Tu veux passer en <b>Facile</b> le temps de reprendre confiance ? Tu pourras revenir en Normal quand tu veux (menu, Réglages).</p>
+    <div class="btns col"><button class="btn" id="fOui">Passer en Facile</button><button class="btn sec" id="fNon">Non, je m’accroche</button></div>`, () => {
+    $('#fOui').onclick = () => { changerReglage('difficulte', 'facile'); fermerModal(); toast('Niveau Facile'); };
+    $('#fNon').onclick = fermerModal;
+  });
+}
 function ecranReglages() {
   const R = reglages(), opt = (k, v, t, d) => `<button class="choix-rgl ${R[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}"><b>${t}</b><small>${d}</small></button>`;
   modal(`<h1 class="lil">Réglages</h1>
     <h2 class="lil">Niveau</h2><div class="rgl">${opt('difficulte', 'facile', 'Facile', 'Adversaires plus faibles, mur affiché au point près. Idéal pour débuter.')}${opt('difficulte', 'normal', 'Normal', 'Le vrai défi : mur annoncé en fourchette, adversaires plus coriaces.')}</div>
     <h2 class="lil">Indices</h2><div class="rgl">${opt('indices', true, 'Avec indices', 'Une piste sous l’Attaquer : combinaison à une carte près.')}${opt('indices', false, 'Sans indice', 'À toi de tout voir.')}</div>
-    <p class="petit">Réglages de ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
+    <p class="petit">${COOP ? 'En coop, le niveau est celui du club : il change aussi pour ton coéquipier. ' : ''}Les indices sont propres à ce téléphone. Le défi de la semaine et le direct se jouent toujours au niveau Normal.</p>
     <div class="btns"><button class="btn" id="rOk">OK</button></div>`, () => {
     document.querySelectorAll('.choix-rgl').forEach(b => (b.onclick = () => { Son.clic(); changerReglage(b.dataset.k, b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v); ecranReglages(); }));
     $('#rOk').onclick = fermerModal;
@@ -271,6 +292,7 @@ function vestiaire() {
   if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
   brancherBandeauCoop();
+  proposerFacile();
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));

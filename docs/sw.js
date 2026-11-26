@@ -1,5 +1,5 @@
 // Changer la version à chaque mise en ligne, sinon les téléphones gardent l'ancien jeu
-const VERSION = 'carton-plein-v24';
+const VERSION = 'carton-plein-v25';
 const FICHIERS = ['./', './index.html', './manifest.json', './icone.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FICHIERS))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(n => n !== VERSION).map(n => caches.delete(n))))); self.clients.claim(); });

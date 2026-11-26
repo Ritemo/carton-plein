@@ -20,7 +20,7 @@ JOUE = """() => {
 def telephone(b, nom, club):
     ctx = b.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page()
     pg.on('pageerror', lambda e: errs.append(nom + ': ' + str(e)))
-    pg.goto(F); pg.evaluate(f"()=>{{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-cloud','{URL}')}}"); pg.reload(); pg.wait_for_timeout(400)
+    pg.goto(F); pg.evaluate(f"()=>{{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({{code:Math.random().toString(36).slice(2,10).toUpperCase().padEnd(8,'X'),pseudo:'',niveauChoisi:true}}));localStorage.setItem('carton-plein-cloud','{URL}')}}"); pg.reload(); pg.wait_for_timeout(400)
     pg.evaluate(f"()=>{{nouvelleCarriere('{club}'); const p=profil(); p.pseudo='{nom}'; majProfil(p); sauver(); syncEnvoyer(); hub('vestiaire')}}"); pg.wait_for_timeout(600)
     return pg
 def jusqua_fin(pages, limite=400):

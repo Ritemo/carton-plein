@@ -618,3 +618,6 @@ body.direct .jauge .repere{display:none}
 .coop-l{display:flex;align-items:center;gap:10px;width:100%;text-align:left;color:inherit;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);border-radius:14px;padding:8px 10px;margin:6px 0;min-height:44px}
 .coop-l small{display:block;font-size:12px;opacity:.8}
 .coop-l .coop-tour{color:#ffd84d;opacity:1;font-weight:700}
+.coop-ligne{display:flex;align-items:center;gap:6px}
+.coop-ligne .coop-l{flex:1;min-width:0}
+.btn:disabled{opacity:.55}

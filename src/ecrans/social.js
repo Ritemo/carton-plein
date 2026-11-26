@@ -23,10 +23,19 @@ async function chargerSocial(force) {
 }
 function majPastilleAmis() {
   const b = document.querySelector('.onglet[data-o="amis"]'); if (!b) return;
-  const p = profil(), n = nonLus() + invitations().length + ((SOCIAL && SOCIAL.coops) || []).filter(c => c.relais && c.relais.par !== p.code).length, i = b.querySelector('.pastille-notif');
+  const p = profil(), n = nonLus() + invitations().length + coopsVisibles(SOCIAL && SOCIAL.coops).filter(c => c.relais && c.relais.par !== p.code).length, i = b.querySelector('.pastille-notif');
   if (n && !i) b.insertAdjacentHTML('beforeend', '<i class="pastille-notif"></i>'); else if (!n && i) i.remove();
 }
-const invitations = () => { if (!SOCIAL) return []; const p = profil(); return SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 20 * 60000); };
+// invitations en direct : la plus récente de chaque ami, moins de 10 minutes, ni utilisée ni écartée
+const salonsVus = () => profil().salonsVus || [];
+function oublierSalon(id) { const p = profil(); p.salonsVus = [...salonsVus(), id].slice(-30); majProfil(p); }
+const invitations = () => {
+  if (!SOCIAL) return []; const p = profil(), vus = salonsVus(), parAmi = {};
+  SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 10 * 60000 && !vus.includes(m.salon)).forEach(m => { if (!parAmi[m.de] || parAmi[m.de].t < m.t) parAmi[m.de] = m; });
+  return Object.values(parAmi);
+};
+// un seul envoi par toucher : le bouton reste grisé pendant l'appel au serveur
+async function unSeul(btn, f) { if (btn && btn.disabled) return; if (btn) btn.disabled = true; try { await f(); } finally { if (btn && btn.isConnected) btn.disabled = false; } }
 
 // ---------- écran principal ----------
 function amis() {
@@ -45,8 +54,8 @@ function amis() {
     <div class="soc-bloc"><div class="soc-t lil">${img('journal', 'mini-ic')} Fil d’actualité</div><div id="sFil"><p class="petit">Chargement…</p></div></div>
   </div>`);
   $('#sPartage').onclick = async () => { const t = `Ajoute-moi dans Carton Plein : mon code ami est ${p.code}`; try { if (navigator.share) await navigator.share({ text: t }); else { await navigator.clipboard.writeText(t); toast('Code copié'); } } catch (e) { } };
-  $('#sAjout').onclick = () => ajouterAmi($('#sCode').value);
-  $('#sCree').onclick = () => creerDirect(null);
+  $('#sAjout').onclick = e => unSeul(e.currentTarget, () => ajouterAmi($('#sCode').value));
+  $('#sCree').onclick = e => unSeul(e.currentTarget, () => creerDirect(null));
   $('#sRejoint').onclick = rejoindreDirectCode;
   $('#sCoop').onclick = ecranCoop;
   brancherAmis();
@@ -60,22 +69,23 @@ function listeAmisHTML() {
       <div class="ami-b"><button class="btn petit-btn" data-ombre="${a.code}" aria-label="Jouer contre son ombre">${img('epees', 'mini-ic')}</button><button class="btn sec petit-btn" data-msg="${a.code}" aria-label="Messages">💬${n ? `<i class="pastille-notif"></i>` : ''}</button><button class="btn sec petit-btn" data-direct="${a.code}" aria-label="Inviter en direct">⚡</button></div></div>`; }).join('');
 }
 function brancherAmis() {
-  document.querySelectorAll('[data-ombre]').forEach(b => (b.onclick = () => lancerOmbre(b.dataset.ombre)));
+  document.querySelectorAll('[data-ombre]').forEach(b => (b.onclick = () => unSeul(b, () => lancerOmbre(b.dataset.ombre))));
   document.querySelectorAll('[data-msg]').forEach(b => (b.onclick = () => conversation(b.dataset.msg)));
-  document.querySelectorAll('[data-direct]').forEach(b => (b.onclick = () => creerDirect(b.dataset.direct)));
+  document.querySelectorAll('[data-direct]').forEach(b => (b.onclick = () => unSeul(b, () => creerDirect(b.dataset.direct))));
 }
 function remplirSocial(S0) {
   if (!S0 || !$('#sFil')) return;
   const p = profil();
   $('#sAmis').innerHTML = listeAmisHTML(); brancherAmis();
   // clubs coop où c'est à moi de jouer
-  const aMoi = (S0.coops || []).filter(c => c.relais && c.relais.par !== p.code);
+  const aMoi = coopsVisibles(S0.coops).filter(c => c.relais && c.relais.par !== p.code);
   $('#sCoops').innerHTML = aMoi.map(c => `<div class="soc-invit">${img('poignee', 'mini-ic')}<span><b>${echap(c.relais.pseudo)}</b> t’attend pour la 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</span><button class="btn" data-coopj="${c.id}">Jouer</button></div>`).join('');
-  document.querySelectorAll('[data-coopj]').forEach(b => (b.onclick = () => entrerCoop(b.dataset.coopj)));
+  document.querySelectorAll('[data-coopj]').forEach(b => (b.onclick = () => unSeul(b, () => entrerCoop(b.dataset.coopj))));
   // invitations à un match en direct
   const inv = invitations();
-  $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button></div>`).join('');
-  document.querySelectorAll('[data-salon]').forEach(b => (b.onclick = () => rejoindreDirect(b.dataset.salon)));
+  $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button><button class="btn sec petit-btn" data-oubli="${m.salon}" aria-label="Ignorer">✕</button></div>`).join('');
+  document.querySelectorAll('[data-salon]').forEach(b => (b.onclick = () => unSeul(b, () => rejoindreDirect(b.dataset.salon))));
+  document.querySelectorAll('[data-oubli]').forEach(b => (b.onclick = () => { oublierSalon(b.dataset.oubli); remplirSocial(SOCIAL); majPastilleAmis(); }));
   // fil
   const fil = [...S0.fil].reverse();
   $('#sFil').innerHTML = fil.length ? fil.map(x => `<div class="fil-l ${x.pour === p.code ? 'pour-moi' : ''}"><b>${echap(x.de === p.code ? 'Toi' : x.pseudo)}</b> ${echap(x.txt)}<small>${ilYa(x.t)}</small></div>`).join('') : '<p class="petit">Rien pour l’instant. Les trophées, montées et matchs entre amis s’afficheront ici.</p>';
@@ -110,6 +120,7 @@ async function ajouterAmi(code) {
 }
 
 // ---------- messages ----------
+let ENVOI = false;
 const RAPIDES = ['Bien joué !', 'Revanche ?', 'Trop fort 😄', 'On joue ce soir ?', '⚽🔥'];
 function conversation(code) {
   const p = profil(), a = amisListe().find(x => x.code === code) || { code };
@@ -121,7 +132,7 @@ function conversation(code) {
       <div class="soc-ajout"><input id="mTxt" class="zone-txt" maxlength="200" placeholder="Message"><button class="btn" id="mEnv">Envoyer</button></div>
       <div class="btns"><button class="btn sec" id="mFer">Fermer</button></div>`, () => {
       const cv = $('#conv'); cv.scrollTop = cv.scrollHeight;
-      const envoyer = async txt => { if (!txt.trim()) return; try { await apiEcrire('message', { de: p.code, a: code, pseudo: p.pseudo, txt }); await chargerSocial(true); rendre(); } catch (e) { toast(e.message); } };
+      const envoyer = async txt => { if (!txt.trim() || ENVOI) return; ENVOI = true; try { await apiEcrire('message', { de: p.code, a: code, pseudo: p.pseudo, txt }); await chargerSocial(true); ENVOI = false; rendre(); } catch (e) { ENVOI = false; toast(e.message); } };
       $('#mEnv').onclick = () => envoyer($('#mTxt').value);
       document.querySelectorAll('[data-r]').forEach(b => (b.onclick = () => envoyer(RAPIDES[+b.dataset.r])));
       $('#mFer').onclick = () => { fermerModal(); if (ONGLET === 'amis') hub('amis'); };

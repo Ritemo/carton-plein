@@ -4,7 +4,7 @@
 // L'hôte attaque aux temps forts pairs, l'invité aux impairs. Chaque téléphone envoie ses choix
 // (total de cartes, tir, plongeon) puis attend ceux de l'autre. Le résultat se calcule pareil des deux côtés.
 let DIRECT = null;
-const POLL_MS = 1500, PATIENCE_MS = 90000;
+const POLL_MS = 1500, PATIENCE_MS = 180000;
 const moiJoueur = () => { const p = profil(); return { code: p.code, pseudo: p.pseudo, club: C.club }; };
 
 async function creerDirect(codeAmi) {
@@ -37,9 +37,9 @@ function rejoindreDirectCode() {
 async function rejoindreDirect(id, erreur) {
   try {
     const j = await apiEcrire('salonRejoindre', { id: (id || '').toUpperCase().trim(), joueur: moiJoueur() }), s = j.salon;
-    DIRECT = { id: s.id, role: 'invite', graine: s.graine, adv: s.hote, actif: true };
+    DIRECT = { id: s.id, role: 'invite', graine: s.graine, adv: s.hote, actif: true }; oublierSalon(s.id);
     fermerModal(); demarrerDirect();
-  } catch (e) { erreur ? erreur(e.message) : toast(e.message); }
+  } catch (e) { oublierSalon((id || '').toUpperCase().trim()); erreur ? erreur(e.message) : toast(e.message); if (!erreur && ONGLET === 'amis') remplirSocial(SOCIAL); }
 }
 function quitterDirect() { if (DIRECT) DIRECT.actif = false; DIRECT = null; }
 function demarrerDirect() {
@@ -64,7 +64,7 @@ async function echanger(cle, valeur) {
 }
 function afficherPatience() {
   const bt = $('#actions'); if (!bt) return;
-  bt.innerHTML = `<button class="btn sec" id="bAband">${echap(S.ami.pseudo)} ne répond plus : arrêter</button>`;
+  bt.innerHTML = `<div class="attente-dir lil">${img('sablier', 'mini-ic')} ${echap(S.ami.pseudo)} réfléchit longtemps…</div><button class="btn sec" id="bAband">Arrêter le match</button>`;
   $('#bAband').onclick = () => { quitterDirect(); S = null; hub('amis'); };
 }
 // temps fort : mon total contre le sien
