@@ -3,13 +3,14 @@
  *   - sauvegarde des carrières : un fichier JSON par joueur dans le dossier Drive « Carton Plein - sauvegardes »
  *   - social : profils publics, fil d'actualité, messages, défi de la semaine (fichier social.json)
  *   - matchs en direct : salons temporaires en cache (6 heures)
+ *   - carrières coop : un fichier coop_XXXXXX.json par club partagé, résumé dans social.json
  *
  * Première installation : Déployer > Nouveau déploiement > Application Web
  *   (Exécuter en tant que : moi ; Accès : tout le monde), puis coller l'adresse /exec dans src/config.js.
  * Mise à jour du code : Déployer > Gérer les déploiements > crayon > Version : « Nouvelle version » > Déployer.
  *   L'adresse ne change pas.
  */
-const VERSION_SERVEUR = 2;
+const VERSION_SERVEUR = 3;
 const DOSSIER = 'Carton Plein - sauvegardes';
 const MAX_FIL = 300, MAX_MSG = 500, DUREE_SALON = 6 * 3600;
 
@@ -28,7 +29,7 @@ function ecrireJSON_(nom, o) {
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 function propre_(t, n) { return String(t || '').replace(/[<>]/g, '').slice(0, n || 200); }
 function verrou_(f) { const v = LockService.getScriptLock(); v.waitLock(15000); try { return f(); } finally { v.releaseLock(); } }
-function social_() { return lireJSON_('social.json', { fil: [], messages: [], defis: {} }); }
+function social_() { const s = lireJSON_('social.json', { fil: [], messages: [], defis: {} }); s.coops = s.coops || {}; return s; }
 function sauverSocial_(s) {
   if (s.fil.length > MAX_FIL) s.fil = s.fil.slice(-MAX_FIL);
   if (s.messages.length > MAX_MSG) s.messages = s.messages.slice(-MAX_MSG);
@@ -53,6 +54,14 @@ function lireSalon_(id) { const t = cache_().get('salon_' + id); return t ? JSON
 function ecrireSalon_(s) { cache_().put('salon_' + s.id, JSON.stringify(s), DUREE_SALON); }
 function nouvelId_() { const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let id; do { id = ''; for (let i = 0; i < 4; i++) id += a[Math.floor(Math.random() * a.length)]; } while (lireSalon_(id)); return id; }
 
+// ---------- carrières coop ----------
+function idCoop_(id) { id = String(id || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (id.length !== 6) throw new Error('Code coop invalide.'); return id; }
+// résumé visible dans l'onglet Amis : qui joue, où en est le club, qui a laissé une mi-temps en suspens
+function indexerCoop_(s, id, c) {
+  const d = c.data || {}, r = d.coop && d.coop.relais;
+  s.coops[id] = { membres: c.membres.map(m => m.code), pseudos: c.membres.map(m => m.pseudo), club: d.club, div: d.div, saison: d.saison, journee: d.journee, relais: r ? { par: r.par, pseudo: r.pseudo, score: r.score } : null, maj: c.maj };
+}
+
 // ---------- lecture ----------
 function doGet(e) {
   try {
@@ -71,10 +80,12 @@ function doGet(e) {
           ok: true, v: VERSION_SERVEUR,
           fil: s.fil.filter(x => cercle.indexOf(x.de) >= 0 || x.pour === moi).slice(-40),
           messages: s.messages.filter(m => (m.a === moi || m.de === moi) && m.t > depuis),
-          defi: p.semaine ? (s.defis[p.semaine] || {}) : {}
+          defi: p.semaine ? (s.defis[p.semaine] || {}) : {},
+          coops: Object.keys(s.coops).filter(id => s.coops[id].membres.indexOf(moi) >= 0).map(id => Object.assign({ id: id }, s.coops[id]))
         });
       }
       case 'salon': return json_({ ok: true, salon: lireSalon_(p.id) });
+      case 'coopLoad': { const c = lireJSON_('coop_' + idCoop_(p.id) + '.json', null); return json_(c ? { ok: true, maj: c.maj, membres: c.membres, data: c.data } : { ok: false, erreur: 'Carrière coop introuvable.' }); }
       default: return json_({ ok: true, info: 'Carton Plein : serveur', v: VERSION_SERVEUR });
     }
   } catch (err) { return json_({ ok: false, erreur: String(err) }); }
@@ -127,6 +138,36 @@ function doPost(e) {
         const s = lireSalon_(o.id);
         if (!s) return json_({ ok: false, erreur: 'Salon expiré.' });
         s.coups[propre_(o.cle, 30)] = o.valeur; s.t = Date.now(); ecrireSalon_(s); return json_({ ok: true, salon: s });
+      });
+      case 'coopCree': return verrou_(() => {
+        const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let id;
+        do { id = ''; for (let i = 0; i < 6; i++) id += a[Math.floor(Math.random() * a.length)]; } while (fichier_('coop_' + id + '.json'));
+        const c = { maj: o.maj || Date.now(), membres: [{ code: codeOk_(o.code), pseudo: propre_(o.pseudo, 16) }], data: o.data };
+        c.data.coop.id = id; ecrireJSON_('coop_' + id + '.json', c);
+        const s = social_(); indexerCoop_(s, id, c); sauverSocial_(s);
+        return json_({ ok: true, id: id, maj: c.maj });
+      });
+      case 'coopRejoindre': return verrou_(() => {
+        const id = idCoop_(o.id), c = lireJSON_('coop_' + id + '.json', null), code = codeOk_(o.code);
+        if (!c) return json_({ ok: false, erreur: 'Carrière coop introuvable.' });
+        if (!c.membres.some(m => m.code === code)) {
+          if (c.membres.length >= 2) return json_({ ok: false, erreur: 'Ce club a déjà ses deux entraîneurs.' });
+          c.membres.push({ code: code, pseudo: propre_(o.pseudo, 16) }); c.data.coop.membres = c.membres;
+          ecrireJSON_('coop_' + id + '.json', c);
+          const s = social_(); indexerCoop_(s, id, c); sauverSocial_(s);
+        }
+        return json_({ ok: true, maj: c.maj, membres: c.membres, data: c.data });
+      });
+      case 'coopSave': return verrou_(() => {
+        const id = idCoop_(o.id), c = lireJSON_('coop_' + id + '.json', null), code = codeOk_(o.code);
+        if (!c) return json_({ ok: false, erreur: 'Carrière coop introuvable.' });
+        if (!c.membres.some(m => m.code === code)) return json_({ ok: false, erreur: 'Tu ne fais pas partie de ce club.' });
+        // l'autre entraîneur a enregistré depuis la dernière lecture de ce téléphone : on refuse, le téléphone recharge
+        if (o.base !== c.maj) return json_({ ok: false, erreur: 'plus récente sur le cloud', maj: c.maj });
+        c.maj = Math.max(o.maj || 0, (c.maj || 0) + 1); c.data = o.data; c.data.coop.membres = c.membres; c.data.maj = c.maj;
+        ecrireJSON_('coop_' + id + '.json', c);
+        const s = social_(); indexerCoop_(s, id, c); sauverSocial_(s);
+        return json_({ ok: true, maj: c.maj });
       });
       default: return json_({ ok: false, erreur: 'action inconnue' });
     }

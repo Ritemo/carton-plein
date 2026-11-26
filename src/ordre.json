@@ -18,6 +18,7 @@
     "ecrans/club.js",
     "ecrans/match.js",
     "ecrans/social.js",
-    "ecrans/direct.js"
+    "ecrans/direct.js",
+    "ecrans/coop.js"
   ]
 }

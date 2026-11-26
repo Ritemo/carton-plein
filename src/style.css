@@ -612,3 +612,9 @@ body.direct .jauge .repere{display:none}
 .fiche-ch:active{transform:scale(.97)}
 .fiche-ch:disabled{opacity:.45}
 .fiche-ch .lm{display:flex;align-items:center;gap:3px}
+/* carrière coop */
+.coop-band{display:flex;align-items:center;gap:8px;background:#2f7de1;color:#fff;border:3px solid #000;border-radius:16px;padding:8px 10px;margin-bottom:10px;font-size:13px;box-shadow:0 3px 0 #000}
+.coop-band span{flex:1;min-width:0}
+.coop-l{display:flex;align-items:center;gap:10px;width:100%;text-align:left;color:inherit;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.15);border-radius:14px;padding:8px 10px;margin:6px 0;min-height:44px}
+.coop-l small{display:block;font-size:12px;opacity:.8}
+.coop-l .coop-tour{color:#ffd84d;opacity:1;font-weight:700}

@@ -67,5 +67,5 @@ async function apiEcrire(action, corps) {
 function publier(txt, type, pour) { const p = profil(); if (!urlCloud() || !p.pseudo) return; apiEcrire('publier', { code: p.code, pseudo: p.pseudo, txt, type: type || '', pour: pour || null }).catch(() => { }); }
 
 // réglages de ce téléphone : niveau et indices
-const reglages = () => Object.assign({ difficulte: 'normal', indices: true }, profil().reglages || {});
+const reglages = () => Object.assign({ difficulte: 'normal', indices: true }, profil().reglages || {}, C && C.coop && C.coop.niveau ? { difficulte: C.coop.niveau } : {});
 function changerReglage(k, v) { const p = profil(); p.reglages = Object.assign(reglages(), { [k]: v }); majProfil(p); }

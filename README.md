@@ -65,6 +65,15 @@ Il faut la sauvegarde automatique. Chaque joueur a un **code ami** (le même que
 
 Ces matchs ne touchent pas la carrière (seulement quelques pièces).
 
+## Carrière coop
+
+Un club pour deux entraîneurs, à côté de la carrière solo (qui n'est jamais touchée). Accueil ou menu : **Carrière coop**.
+
+- Un joueur crée le club (niveau Facile ou Normal, choisi pour le club), l'autre le rejoint avec le code à 6 caractères.
+- Chaque match se joue en relais : le premier qui joue fait la 1re mi-temps, l'autre est prévenu (message + pastille sur l'onglet Amis) et joue la 2e quand il veut. On peut aussi finir le match soi-même.
+- Chaque match de coop rapporte une prime aux deux carrières solo : 15 pièces par victoire, 8 par nul, 4 par défaite, une carte rare par trophée. Elle est versée au retour dans la carrière solo.
+- Si les deux téléphones jouent en même temps, le deuxième à enregistrer est refusé et recharge le club : aucun des deux n'écrase l'autre.
+
 **Mettre à jour le script Google** (à faire à chaque changement de `apps-script/Code.gs`) : script.google.com, ouvrir le projet, remplacer tout le code par le nouveau, enregistrer, puis **Déployer > Gérer les déploiements > crayon > Version : Nouvelle version > Déployer**. L'adresse ne change pas.
 
 ## Gestes courants

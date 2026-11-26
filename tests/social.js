@@ -40,4 +40,12 @@ const sal = Sv.post({ action: 'salonCree', joueur: { code: 'PAPA1234' } }).salon
 verif('serveur : un salon refuse un troisième joueur', Sv.post({ action: 'salonRejoindre', id: sal.id, joueur: { code: 'PRIAM123' } }).ok && !Sv.post({ action: 'salonRejoindre', id: sal.id, joueur: { code: 'AUTRE123' } }).ok);
 Sv.post({ action: 'defi', semaine: '2026-48', code: 'PAPA1234', score: 300 }); const df = Sv.post({ action: 'defi', semaine: '2026-48', code: 'PAPA1234', score: 200 }).defi;
 verif('serveur : défi garde le meilleur score et compte les essais', df.PAPA1234.score === 300 && df.PAPA1234.essais === 2);
+// carrière coop : un deuxième entraîneur, pas de troisième ; une sauvegarde périmée est refusée
+const co = Sv.post({ action: 'coopCree', code: 'PAPA1234', pseudo: 'Papa', maj: 5, data: { club: 'cannes', coop: {} } });
+verif('coop : rejoindre', Sv.post({ action: 'coopRejoindre', id: co.id, code: 'PRIAM123', pseudo: 'Priam' }).membres.length === 2);
+verif('coop : pas de troisième', !Sv.post({ action: 'coopRejoindre', id: co.id, code: 'AUTRE123', pseudo: 'X' }).ok);
+const s1 = Sv.post({ action: 'coopSave', id: co.id, code: 'PRIAM123', maj: 10, base: 5, data: { club: 'cannes', coop: { relais: { par: 'PRIAM123', pseudo: 'Priam', score: { p: 1, ia: 0 } } } } });
+verif('coop : sauvegarde à jour acceptée', s1.ok);
+verif('coop : sauvegarde périmée refusée', !Sv.post({ action: 'coopSave', id: co.id, code: 'PAPA1234', maj: 99, base: 5, data: { coop: {} } }).ok);
+verif('coop : relais visible chez l’autre', Sv.get({ action: 'social', code: 'PAPA1234' }).coops[0].relais.par === 'PRIAM123');
 console.log(`${ok} tests réussis, ${ko} en échec`); process.exit(ko ? 1 : 0);

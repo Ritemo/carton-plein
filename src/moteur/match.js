@@ -53,6 +53,7 @@ const CARTES_ADV = {
   blocbas: { nom: 'Bloc bas', ic: 'mur', txt: 'Dribbles −4, mais Frappes +3', cote: 'att' },
   harcelement: { nom: 'Harcèlement', ic: 'feu', txt: '1 carte de moins cette action', cote: 'att', cartes: -1 },
   lecture: { nom: 'Lecture du jeu', ic: 'ampoule', txt: 'Ton combo favori : −1 au combo', cote: 'att' },
+  jeudirect: { nom: 'Jeu direct', ic: 'avion', txt: 'Ils contournent ta défense favorite : −1 à ce combo', cote: 'def' },
   gardienfeu: { nom: 'Gardien en feu', ic: 'gardien', txt: 'Le mur est 15 % plus haut', cote: 'att', cible: 1.15 },
   // quand ils attaquent
   appels: { nom: 'Appels en profondeur', ic: 'course', txt: 'Tes Marquages valent 0', cote: 'def' },
@@ -72,11 +73,12 @@ function choisirCartesAdv() {
   let n = eur ? 2 : d === 1 ? (hasard() < 0.35 ? 2 : 1) : d === 2 ? 1 : (hasard() < 0.6 ? 1 : 0);
   if (S.type && S.type !== 'normal') n = Math.min(n, 1);
   if (S.tuto === 2) n = 1;
-  const pool = Object.keys(CARTES_ADV).filter(k => CARTES_ADV[k].cote === cote && k !== 'star');
+  const pool = Object.keys(CARTES_ADV).filter(k => CARTES_ADV[k].cote === cote && !['star', 'lecture', 'jeudirect'].includes(k));
   const prefs = (PREF_STYLE[S.style] || []).filter(k => CARTES_ADV[k].cote === cote);
   const out = [];
   // s'adapte : tu rejoues le même combo, il sort la Lecture du jeu
   if (att && S.favori && S.favori.n >= 2 && n > 0 && hasard() < 0.7) out.push('lecture');
+  if (!att && S.favoriDef && S.favoriDef.n >= 2 && n > 0 && hasard() < 0.6) out.push('jeudirect');
   // mené au score : il prend des risques (son numéro 10) ; devant : il ferme le jeu
   if (!att && n > 0 && !out.length && (S.score.ia < S.score.p || clubPar(S.opp).force >= 0.8) && !S.starAdvJouee && hasard() < 0.45) { out.push('star'); S.starAdvJouee = true; }
   while (out.length < n) { const src = hasard() < 0.65 && prefs.length ? prefs : pool; const k = pick(src); if (!out.includes(k)) out.push(k); }
@@ -153,6 +155,7 @@ function calcul(cartes) {
   let mult = combo.mult + 0.5 * (niv - 1); const bonusMult = [];
   if (advActif('marquage') && pts.length) { const best = pts.reduce((a, b) => (b.v > a.v ? b : a)); best.v = Math.floor(best.v / 2); best.notes.push('marquée ÷2'); }
   if (att && advActif('lecture') && S.favori && combo.id === S.favori.id && combo.mult > 1) { mult -= 1; bonusMult.push('Lecture du jeu −1'); }
+  if (!att && advActif('jeudirect') && S.favoriDef && combo.id === S.favoriDef.id && combo.mult > 1) { mult = Math.max(1, mult - 1); bonusMult.push('Jeu direct −1'); }
   if (!att && advActif('surnombre') && valides.length) { mult = Math.max(1, mult - 0.5); bonusMult.push('Surnombre −0,5'); }
   if (S.feinteActive && S.adv && S.adv.length) bonusMult.push('Feinte : cartes adverses annulées');
   if (att && S.type === 'eclair') { mult += 1; bonusMult.push('Éclair +1'); }
@@ -287,6 +290,10 @@ function finTempsFort(type, r, tir) {
   if (r && r.combo && r.valides && r.valides.length && TYPES[r.valides[0].t].att && r.combo.mult > 1 && r.combo.id !== 'cf') {
     S.combos = S.combos || {}; S.combos[r.combo.id] = (S.combos[r.combo.id] || 0) + 1;
     const [id, n] = Object.entries(S.combos).sort((a, b) => b[1] - a[1])[0]; S.favori = { id, n };
+  }
+  if (r && r.combo && r.valides && r.valides.length && !TYPES[r.valides[0].t].att && r.combo.mult > 1) {
+    S.combosDef = S.combosDef || {}; S.combosDef[r.combo.id] = (S.combosDef[r.combo.id] || 0) + 1;
+    const [id, n] = Object.entries(S.combosDef).sort((a, b) => b[1] - a[1])[0]; S.favoriDef = { id, n };
   }
   // statistiques pour le défi et les objectifs
   if (r && r.couleur) { S.stats.trios++; if (r.couleur.n === 4) S.stats.cartons++; }

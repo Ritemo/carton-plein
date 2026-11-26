@@ -23,7 +23,7 @@ async function chargerSocial(force) {
 }
 function majPastilleAmis() {
   const b = document.querySelector('.onglet[data-o="amis"]'); if (!b) return;
-  const n = nonLus() + invitations().length, i = b.querySelector('.pastille-notif');
+  const p = profil(), n = nonLus() + invitations().length + ((SOCIAL && SOCIAL.coops) || []).filter(c => c.relais && c.relais.par !== p.code).length, i = b.querySelector('.pastille-notif');
   if (n && !i) b.insertAdjacentHTML('beforeend', '<i class="pastille-notif"></i>'); else if (!n && i) i.remove();
 }
 const invitations = () => { if (!SOCIAL) return []; const p = profil(); return SOCIAL.messages.filter(m => m.type === 'invite' && m.a === p.code && Date.now() - m.t < 20 * 60000); };
@@ -39,6 +39,7 @@ function amis() {
     <div id="sDefi" class="soc-bloc"><div class="soc-t lil">${img('medaille', 'mini-ic')} Défi de la semaine</div><p class="petit">Chargement…</p></div>
     <div class="soc-bloc"><div class="soc-t lil">${img('poignee', 'mini-ic')} Mes amis</div><div id="sAmis">${listeAmisHTML()}</div><p class="petit legende">⚔️ jouer contre son ombre · 💬 messages · ⚡ inviter en direct</p>
       <div class="soc-ajout"><input id="sCode" class="zone-txt code-j" maxlength="10" autocapitalize="characters" placeholder="CODE D’UN AMI"><button class="btn" id="sAjout">Ajouter</button></div></div>
+    <div class="soc-bloc"><div class="soc-t lil">${img('poignee', 'mini-ic')} Carrière coop</div><p class="petit">Un club pour deux, une mi-temps chacun. Chaque match rapporte une prime à ta carrière solo.</p><div id="sCoops"></div><button class="btn" id="sCoop">Mes clubs coop</button></div>
     <div class="soc-bloc"><div class="soc-t lil">${img('epees', 'mini-ic')} Match en direct</div><p class="petit">Chacun sur son téléphone, avec son équipe. Les deux joueurs posent leurs cartes en même temps.</p>
       <div class="btns"><button class="btn" id="sCree">Créer un match</button><button class="btn sec" id="sRejoint">Rejoindre</button></div></div>
     <div class="soc-bloc"><div class="soc-t lil">${img('journal', 'mini-ic')} Fil d’actualité</div><div id="sFil"><p class="petit">Chargement…</p></div></div>
@@ -47,6 +48,7 @@ function amis() {
   $('#sAjout').onclick = () => ajouterAmi($('#sCode').value);
   $('#sCree').onclick = () => creerDirect(null);
   $('#sRejoint').onclick = rejoindreDirectCode;
+  $('#sCoop').onclick = ecranCoop;
   brancherAmis();
   chargerSocial(true).then(remplirSocial).catch(e => { const f = $('#sFil'); if (f) f.innerHTML = `<p class="petit">Pas de connexion : ${echap(e.message)}</p>`; });
 }
@@ -66,6 +68,10 @@ function remplirSocial(S0) {
   if (!S0 || !$('#sFil')) return;
   const p = profil();
   $('#sAmis').innerHTML = listeAmisHTML(); brancherAmis();
+  // clubs coop où c'est à moi de jouer
+  const aMoi = (S0.coops || []).filter(c => c.relais && c.relais.par !== p.code);
+  $('#sCoops').innerHTML = aMoi.map(c => `<div class="soc-invit">${img('poignee', 'mini-ic')}<span><b>${echap(c.relais.pseudo)}</b> t’attend pour la 2e mi-temps (${c.relais.score.p}-${c.relais.score.ia})</span><button class="btn" data-coopj="${c.id}">Jouer</button></div>`).join('');
+  document.querySelectorAll('[data-coopj]').forEach(b => (b.onclick = () => entrerCoop(b.dataset.coopj)));
   // invitations à un match en direct
   const inv = invitations();
   $('#sInvit').innerHTML = inv.map(m => `<div class="soc-invit">${img('epees', 'mini-ic')}<span><b>${echap(m.pseudo)}</b> t’invite à un match en direct</span><button class="btn" data-salon="${m.salon}">Jouer</button></div>`).join('');

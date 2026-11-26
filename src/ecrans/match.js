@@ -327,6 +327,7 @@ function resoudreTir(t, pen) {
 function rafraichirTableau() { const s = document.querySelector('#tableau .sc'); if (s) s.innerHTML = `${S.score.p}<span>-</span>${S.score.ia}`; }
 function suiteTF() {
   Son.clic(); S.histo.push(S.marque || ''); S.marque = ''; S.duelAdv = null; S.tf++; S.dejaVu = false; if (S.tf === NB_TF / 2) Son.sifflet(false);
+  if (S.coopMoitie === 1 && S.tf === NB_TF / 2) return pauseCoop();
   const go = () => { piocher(PIOCHE_TF); preparerTF(); };
   const e = S.comp === 'defi' || S.comp === 'direct' ? null : tirerEvenement(); if (!e) return go();
   const T = TEXTE_EVT[e.id](e);
@@ -404,6 +405,7 @@ function seanceTab() {
 function ecranFin(tab) {
   const gp = S.score.p, gc = S.score.ia, opp = S.eq.ia;
   const bilan = bilanMatch(tab), cp = bilan.coupe;
+  if (COOP) finMatchCoop(gp, gc, cp && cp.gagne);
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);

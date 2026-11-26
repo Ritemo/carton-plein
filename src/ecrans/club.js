@@ -117,6 +117,7 @@ function ecranSauvegarde() {
   });
 }
 function accueil() {
+  if (COOP) quitterCoop();
   Son.tension(0); document.body.className = 'menu';
   syncVerifier(j => modal(`${img('bouclier', 'grande-ic')}<h1 class="lil">Sauvegarde plus récente</h1><p>Le cloud a une carrière plus récente (${new Date(j.maj).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}). La reprendre sur ce téléphone ?</p><div class="btns"><button class="btn" id="mOui">Reprendre</button><button class="btn sec" id="mNon">Garder celle-ci</button></div>`, () => { $('#mOui').onclick = () => { C = migrer(j.data); sauver(); fermerModal(); accueil(); }; $('#mNon').onclick = fermerModal; }));
   const sv = charger();
@@ -127,11 +128,13 @@ function accueil() {
     ${sv ? `<button class="bloc-continuer" id="bCont">${blason(cl, 44)}<span><b class="lil">Continuer</b><small>${cl.nom} · Saison ${sv.saison} · ${nomDiv(sv.div, sv.pays)} · journée ${Math.min(sv.journee + 1, (sv.calendrier || []).length || 9)}</small></span><span class="fleche lil">›</span></button>` : ''}
     <button class="btn gros" id="bNew">${sv ? 'Nouvelle carrière' : 'Commencer ma carrière'}</button>
     <button class="btn sec" id="bRegles">Comment jouer</button>
+    ${urlCloud() ? '<button class="btn sec" id="bCoop">Carrière coop</button>' : ''}
     ${!sv && urlCloud() ? '<button class="lien" id="bRecup">J’ai déjà une carrière sur un autre téléphone</button>' : ''}
     <p class="credit">Émoticônes 3D Fluent Emoji (Microsoft, licence MIT). Noms de clubs réels, écussons et joueurs inventés.</p>
   </div>`, 'plein');
   const go = () => { Son.init(); Son.clic(); };
   on('bRecup', () => { go(); ecranRecup(); });
+  on('bCoop', () => { go(); ecranCoop(); });
   if (sv) $('#bCont').onclick = () => { go(); C = sv; hub('vestiaire'); };
   $('#bNew').onclick = () => { go(); if (sv) modal(`<h1 class="lil">Nouvelle carrière ?</h1><p>Ta carrière avec ${cl.nom} sera effacée.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); else demarrerNouvelle(); };
   $('#bRegles').onclick = () => { go(); regles(); };
@@ -151,7 +154,7 @@ function choixClub(pays) {
     <div class="grille-clubs">${clubs.filter(c => groupes.length < 2 || c.g === GROUPE_VU).map(tuile).join('')}</div></div>`, 'plein');
   document.querySelectorAll('[data-grp]').forEach(b => (b.onclick = () => { Son.clic(); GROUPE_VU = b.dataset.grp; choixClub(pays); }));
   $('#bRet').onclick = () => { Son.clic(); choixPays(); };
-  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); nouvelleCarriere(b.dataset.id); intro(); }));
+  document.querySelectorAll('.club-choix').forEach(b => (b.onclick = () => { Son.clic(); if (COOP_CREATION) return finCreationCoop(b.dataset.id); nouvelleCarriere(b.dataset.id); intro(); }));
 }
 async function scenes(liste, fin) {
   let i = 0;
@@ -207,7 +210,7 @@ function hub(onglet) {
   ONGLET = onglet || ONGLET; document.body.className = 'hub'; Son.tension(0);
   barreHaut();
   const cl = clubPar(C.club);
-  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button><button class="btn sec" id="mNew">Recommencer ma carrière</button><button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
+  $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button>${COOP ? '<button class="btn sec" id="mSolo">Revenir à ma carrière solo</button>' : '<button class="btn sec" id="mCoop">Carrière coop</button><button class="btn sec" id="mNew">Recommencer ma carrière</button>'}<button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; on('mSolo', () => { fermerModal(); quitterCoop(); C ? hub('vestiaire') : accueil(); }); on('mCoop', () => { fermerModal(); ecranCoop(); }); if ($('#mNew')) $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
   const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
@@ -215,6 +218,7 @@ function hub(onglet) {
   $('#nav').querySelectorAll('.onglet').forEach(b => (b.onclick = () => { Son.clic(); hub(b.dataset.o); }));
   ({ vestiaire, effectif, formation, boutique, competitions, amis })[ONGLET]();
   if (urlCloud() && ONGLET !== 'amis') chargerSocial().then(majPastilleAmis).catch(() => { });
+  if (!COOP) verserPrimeSolo();
 }
 function maj() { sauver(); hub(ONGLET); }
 function barreHaut() {
@@ -248,14 +252,14 @@ function vestiaire() {
     : `${img(COUPES[cp.k].ic)} ${m.nom} · ${m.tour}`;
   const sousOpp = ligue ? `${rangDe(opp.id)}e · ${C.classement[opp.id].pts} pts` : opp.pays !== C.pays ? `${drapeau(opp.pays, 16)} ${nomDiv(C.divisions[opp.id] || opp.div, opp.pays)}` : nomDiv(C.divisions[opp.id]);
   const rep = C.ansD1 ? `<span class="chip">${img('etoile')}Réputation ${C.ansD1}</span>` : '';
-  vue(`<div class="page">
+  vue(`<div class="page">${bandeauCoop()}
     ${bulle('dede', conseil)}
     <div class="prochain ${derby ? 'derby' : ''} ${!ligue ? 'coupe ' + (m.comp === 'eur' ? 'europe' : '') : ''}">
       <div class="pm-haut lil">${entete}</div>
       <div class="pm-affiche"><div class="pm-club">${blason(moi, 64)}<b class="lil">${moi.nom}</b><small>${ligue ? `${rang}e · ${l.pts} pts` : nomDiv(C.div)}</small></div><div class="pm-vs lil">VS</div><div class="pm-club">${blason(opp, 64)}<b class="lil">${opp.nom}</b><small>${sousOpp}</small></div></div>
       <div class="pm-infos"><span class="chip">${img('tactique')}${STYLES[opp.style].nom}</span><span class="chip">${img(met.ic)}${met.nom}</span>${rep}</div>
       <div class="pm-detail">${STYLES[opp.style].txt}. Météo : ${met.txt.toLowerCase()}.${C.ansD1 ? ` Réputation ${C.ansD1} : tout le monde te prend au sérieux, adversaires +${Math.round(DIFF.r * C.ansD1 * 100)} %.` : ''}</div>
-      <button class="btn gros large" id="bJouer">${ligue ? 'Jouer le match' : 'Jouer le ' + m.tour.toLowerCase()}</button>
+      <button class="btn gros large" id="bJouer">${COOP && C.coop.relais ? 'Jouer la 2e mi-temps' : COOP ? 'Jouer la 1re mi-temps' : ligue ? 'Jouer le match' : 'Jouer le ' + m.tour.toLowerCase()}</button>
     </div>
     ${fenetreMercato() ? `<button class="coupe-ligne mercato" id="bMerc" data-merc="1">${img('poignee')}<b class="lil">Mercato ${fenetreMercato() === 'ete' ? 'd’été' : 'd’hiver'} ouvert</b><small>${C.mercato ? C.mercato.liste.length : 0} joueurs à recruter</small></button>` : ''}
     ${coupesResume()}
@@ -265,7 +269,8 @@ function vestiaire() {
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
   if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
-  $('#bJouer').onclick = () => { Son.init(); Son.clic(); lancerMatch(); };
+  $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
+  brancherBandeauCoop();
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));
@@ -437,10 +442,10 @@ function segCoupes() {
 }
 function segPalmares() {
   const tr = C.trophees || [];
-  const vitrine = tr.length ? `<div class="vitrine">${tr.map(t => `<div class="trophee-v">${img(t.k === 'nat' ? 'trophee' : 'globe')}<small>${t.nom}<br>saison ${t.s}</small></div>`).join('')}</div>` : bulle('dede', 'La vitrine du club est vide. J’ai pourtant fait de la place à côté de la photo de 1987.');
-  const champ = C.palmares.filter(p => p.issue === 'champion').length;
+  const vitrine = tr.length ? `<div class="vitrine">${tr.map(t => `<div class="trophee-v">${img(t.k === 'nat' ? 'trophee' : t.k === 'titre' ? 'medaille' : 'globe')}<small>${t.nom}<br>saison ${t.s}</small></div>`).join('')}</div>` : bulle('dede', 'La vitrine du club est vide. J’ai pourtant fait de la place à côté de la photo de 1987.');
+  const champ = tr.filter(t => t.k === 'titre').length, nbCoupes = tr.length - champ;
   return `<h1 class="lil titre-page">${img('trophee', 'titre-ic')}Vitrine</h1>${vitrine}
-    <div class="stats-car"><div><b class="lil">${C.saison}</b><small>saison${C.saison > 1 ? 's' : ''}</small></div><div><b class="lil">${champ}</b><small>titre${champ > 1 ? 's' : ''}</small></div><div><b class="lil">${tr.length}</b><small>coupe${tr.length > 1 ? 's' : ''}</small></div><div><b class="lil">${C.formation.recrues || 0}</b><small>formé${(C.formation.recrues || 0) > 1 ? 's' : ''}</small></div></div>
+    <div class="stats-car"><div><b class="lil">${C.saison}</b><small>saison${C.saison > 1 ? 's' : ''}</small></div><div><b class="lil">${champ}</b><small>titre${champ > 1 ? 's' : ''}</small></div><div><b class="lil">${nbCoupes}</b><small>coupe${nbCoupes > 1 ? 's' : ''}</small></div><div><b class="lil">${C.formation.recrues || 0}</b><small>formé${(C.formation.recrues || 0) > 1 ? 's' : ''}</small></div></div>
     ${C.palmares.length ? `<h2 class="lil">Saison par saison</h2>${C.palmares.slice().reverse().map(p => `<div class="palm">${drapeau(p.pays || 'fr', 16)} Saison ${p.s}${p.club && clubPar(p.club) ? ' · ' + clubPar(p.club).nom : ''} · ${nomDiv(p.div, p.pays)} · ${p.rang}e ${{ montee: '· montée', champion: '· champion !', europe: '· qualifié en Europe', descente: '· relégué', maintien: '' }[p.issue]}${(p.coupes || []).map(c => `<small>${c.nom} : ${c.gagne ? 'vainqueur' : c.tour.toLowerCase()}</small>`).join('')}</div>`).join('')}` : ''}`;
 }
 function segUne() {

@@ -6,7 +6,14 @@
 let C = null;
 const CLE = 'carton-plein-carriere-v1';
 let TUTO_EN_COURS = false;
-function sauver() { if (!C || C.temp || TUTO_EN_COURS) return; C.maj = Date.now(); try { localStorage.setItem(CLE, JSON.stringify(C)); } catch (e) { } if (typeof syncPlanifier === 'function') syncPlanifier(); }
+// carrière coop : C est alors le club partagé, rangé à part (jamais à la place de la carrière solo)
+let COOP = null, COOP_CREATION = null;
+const cleCoop = id => 'carton-plein-coop-' + id;
+function sauver() {
+  if (!C || C.temp || TUTO_EN_COURS || COOP_CREATION) return; C.maj = Date.now();
+  try { localStorage.setItem(COOP ? cleCoop(COOP) : CLE, JSON.stringify(C)); } catch (e) { }
+  if (COOP) { if (typeof coopPlanifier === 'function') coopPlanifier(); } else if (typeof syncPlanifier === 'function') syncPlanifier();
+}
 function charger() { try { const t = localStorage.getItem(CLE); return t ? migrer(JSON.parse(t)) : null; } catch (e) { return null; } }
 const ALIAS = { 'es-ponfe': 'es-ponferradina' };
 function migrer(c) { // sauvegardes de la v7 et de la v8
@@ -35,8 +42,10 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if ((c.v || 1) < 5) { if (!c.cartes.some(x => x.t === 'feinte')) c.cartes.push(nouvelleCarte('feinte', 7, 'rare')); c.nouveautesV13 = true; }
   if ((c.v || 1) < 6) c.nouveautesV16 = true;
   if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
+  // titres de division (champion de Ligue 3, de Ligue 2...) : désormais dans la vitrine
+  if ((c.v || 1) < 8) (c.palmares || []).forEach(p => { if (p.rang === 1 && !c.trophees.some(t => t.k === 'titre' && t.s === p.s)) c.trophees.push({ s: p.s, k: 'titre', nom: `Champion de ${PAYS[p.pays || c.pays].divs[p.div]}` }); });
   C = av;
-  c.v = 7; return c;
+  c.v = 8; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -238,6 +247,7 @@ function finSaison() {
   const objRang = avancerObjectif('rang', rang <= ((C.objectifs || []).find(o => o.id === 'rang') || { cible: 0 }).cible ? 99 : 0, true);
   const objectifsSaison = (C.objectifs || []).map(o => ({ txt: OBJ_SAISON[o.id].txt(o), fait: o.fait, prime: OBJ_SAISON[o.id].prime }));
   C.palmares.push({ s: C.saison, div: C.div, pays: C.pays, club: C.club, rang, nb, issue: issueS, coupes: coupesSaison });
+  if (rang === 1) C.trophees.push({ s: C.saison, k: 'titre', nom: `Champion de ${nomDiv(C.div)}` });
   // montées et descentes dans tout le pays
   const bruit = {}; CLUBS.forEach(cl => { if (cl.pays === C.pays) bruit[cl.id] = cl.force + hasard() * 0.25; });
   const mouv = [];
