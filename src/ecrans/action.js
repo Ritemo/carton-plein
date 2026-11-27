@@ -17,7 +17,7 @@ function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); O
 
 function creerScene(r) {
   if (!r.valides.length) return null;
-  LENT = 2.4;
+  LENT = (() => { try { return localStorage.getItem('carton-plein-rapide') ? 0.25 : 2.4; } catch (e) { return 2.4; } })(); // les robots de test jouent en accéléré
   const att = enAttaque(), cartes = [...r.valides].sort((a, b) => (ORDRE_GESTE[a.t] ?? 2) - (ORDRE_GESTE[b.t] ?? 2));
   // plein écran : le terrain en grand, le calcul et la jauge juste en dessous
   const ancien = $('#actionPlein'); if (ancien) ancien.remove();

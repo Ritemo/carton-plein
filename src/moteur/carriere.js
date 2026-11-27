@@ -217,6 +217,8 @@ function bilanMatch(tab) {
   C.serie = gp >= gc ? (C.serie || 0) + 1 : 0; ajoute(avancerObjectif('serie', C.serie, true));
   if (comp === 'nat' && C.coupes.nat && (C.coupes.nat.tour >= 2 || C.coupes.nat.gagne)) ajoute(avancerObjectif('coupe', 1));
   const recettes = recettesMatch(S.dom); gain += recettes;
+  if (C.pari) { if (gp < gc) gain -= 15; C.pari = false; }
+  if (opp === C.rival && coachRival()) { const cr = C.coachRival; if (gp > gc) cr.defaites++; else if (gp < gc) cr.victoires++; }
   C.pieces += gain;
   S.buteurs.forEach(ji => C.effectif[ji] && C.effectif[ji].buts++);
   C.effectif.forEach(j => j.matchs++);

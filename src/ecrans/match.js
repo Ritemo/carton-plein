@@ -5,8 +5,8 @@ function lancerMatch() {
   document.body.className = 'match';
   $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = '';
   nouveauMatch(prochainMatch());
-  const met = METEOS[S.meteo], opp = S.eq.ia, inf = S.info;
-  modal(`<div class="comp-tag lil ${S.comp === 'eur' ? 'europe' : S.comp === 'nat' ? 'coupe' : ''}">${inf.comp === 'ligue' ? inf.nom : inf.nom + ' · ' + inf.tour}</div><div class="coup-envoi">${blason(S.eq.p, 56)}<span class="lil">VS</span>${blason(opp, 56)}</div><h1 class="lil centre">${S.eq.p.nom} - ${opp.nom}</h1>
+  const met = METEOS[S.meteo], opp = S.eq.ia, inf = S.info, cr = S.opp === C.rival ? coachRival() : null;
+  modal(`${cr ? `<div class="pique">${img('journal', 'mini-ic')}<span><b>${cr.nom}</b>, coach de ${opp.nom} : « ${pick(PIQUES)} »</span></div>` : ''}<div class="comp-tag lil ${S.comp === 'eur' ? 'europe' : S.comp === 'nat' ? 'coupe' : ''}">${inf.comp === 'ligue' ? inf.nom : inf.nom + ' · ' + inf.tour}</div><div class="coup-envoi">${blason(S.eq.p, 56)}<span class="lil">VS</span>${blason(opp, 56)}</div><h1 class="lil centre">${S.eq.p.nom} - ${opp.nom}</h1>
     <div class="regles"><div>${img('tactique')}<span><b>${STYLES[opp.style].nom}</b> : ${STYLES[opp.style].txt}.</span></div><div>${img(met.ic)}<span><b>${met.nom}</b> : ${met.txt}.</span></div><div class="defi">${img('medaille')}<span><b>Défi du match</b> : ${DEFIS.find(x => x.id === S.defi).txt} (+${PRIME_DEFI} pièces)</span></div></div>
     <div class="btns"><button class="btn gros" id="mGo">Coup d'envoi</button></div>`, () => ($('#mGo').onclick = () => { Son.sifflet(false); fermerModal(); afficherMatch(); }));
 }
@@ -408,8 +408,10 @@ function seanceTab() {
 }
 function ecranFin(tab) {
   const gp = S.score.p, gc = S.score.ia, opp = S.eq.ia;
+  const derby = S.opp === C.rival, cr = derby ? coachRival() : null;
   const bilan = bilanMatch(tab), cp = bilan.coupe;
   if (COOP) finMatchCoop(gp, gc, cp && cp.gagne);
+  const chap = chapitreDuMatch({ gp, gc, derby, trophee: cp && cp.gagne });
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
@@ -424,16 +426,18 @@ function ecranFin(tab) {
     <div class="journal-une"><div class="une-logo lil">${img('journal', 'mini-ic')} La Une</div><div class="une-t">${bilan.une}</div><div class="une-s">Meilleure action : ${S.stats.meilleurCombo || 'aucune'} à ${S.stats.meilleur}</div>${C.journal[0] && C.journal[0].rival ? `<div class="une-s">${C.journal[0].rival}</div>` : ''}</div>
     ${bilan.defi ? `<div class="cp-res ${bilan.defiOk ? 'or' : ''}">${img('medaille', 'mini-ic')} Défi « ${bilan.defi.txt} » ${bilan.defiOk ? `réussi : +${PRIME_DEFI}` : 'manqué'}</div>` : ''}
     ${(bilan.objFaits || []).map(o => `<div class="cp-res or">${img('trophee', 'mini-ic')} Objectif du président atteint : ${OBJ_SAISON[o.id].txt(o)} (+${OBJ_SAISON[o.id].prime})</div>`).join('')}
+    ${cr ? `<div class="cp-res">${img('journal', 'mini-ic')} ${cr.nom} ${pick(REACTIONS[gp > gc ? 'gagne' : gp < gc ? 'perd' : 'nul'])}</div>` : ''}
     ${(bilan.progres || []).map(x => `<div class="cp-res">${img('fusee', 'mini-ic')} <b>${x.nom}</b> ${x.txt}</div>`).join('')}
     <div class="gain lil">${img('piece')} +${bilan.gain} pièces${bilan.recettes ? ` <small>(dont ${bilan.recettes} de recettes)</small>` : ''}</div>
     ${bilan.recompenses.length ? `<h2 class="lil centre">Choisis ta récompense</h2>
     <div class="recompenses">${bilan.recompenses.map((o, i) => `<button class="recomp" data-i="${i}">${recompHTML(o)}</button>`).join('')}</div>` : `<p class="petit centre">Pas de récompense sans victoire. On se rattrape au prochain match.</p><button class="btn gros" id="bFinOk">Retour au vestiaire</button>`}
   </div>`, 'plein');
-  const fo = $('#bFinOk'); if (fo) fo.onclick = () => { Son.clic(); S = null; hub('vestiaire'); };
+  const sortie = () => { S = null; chap ? scenes([{ qui: chap.qui, ic: 'journal', txt: chap.txt, bouton: 'Au vestiaire' }], () => hub('vestiaire')) : hub('vestiaire'); };
+  const fo = $('#bFinOk'); if (fo) fo.onclick = () => { Son.clic(); sortie(); };
   document.querySelectorAll('.recomp').forEach(b => (b.onclick = () => {
     Son.piece(); appliquerRecompense(bilan.recompenses[+b.dataset.i]); sauver();
     document.querySelectorAll('.recomp').forEach(x => x.classList.add(x === b ? 'pris' : 'pas-pris'));
-    setTimeout(() => { S = null; hub('vestiaire'); }, 650);
+    setTimeout(sortie, 650);
   }));
 }
 function recompHTML(o) {

@@ -690,3 +690,5 @@ body.direct .jauge .repere{display:none}
 #actionPlein .ap-terrain{max-width:330px;flex:0 1 auto}
 #actionPlein .terrain-action{max-height:58vh;width:auto;margin:0 auto}
 @media (min-aspect-ratio:1/1){#actionPlein .terrain-action{max-height:50vh}}
+.pique{display:flex;gap:8px;align-items:flex-start;background:#fff8e1;color:#1c1240;border:3px solid #000;border-radius:14px;padding:8px 10px;margin-bottom:8px;font-size:13px;text-align:left}
+.coupe-ligne.presse{background:linear-gradient(#8a6bff,#5a3fd6)}

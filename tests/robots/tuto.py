@@ -27,7 +27,7 @@ def jouer_match(pg, pref, shots):
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':375,'height':740},device_scale_factor=2)
     errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
-    pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>{effacer(); localStorage.removeItem('carton-plein-tuto');localStorage.setItem('carton-plein-cloud','')}"); pg.reload(); pg.wait_for_timeout(600)
+    pg.goto(F); pg.wait_for_timeout(500); pg.evaluate("()=>{effacer(); localStorage.removeItem('carton-plein-tuto');localStorage.setItem('carton-plein-rapide','1');localStorage.setItem('carton-plein-cloud','')}"); pg.reload(); pg.wait_for_timeout(600)
     pg.click('#bNew'); pg.wait_for_timeout(400); pg.screenshot(path='/tmp/t_offre.png'); pg.click('#mTuto'); pg.wait_for_timeout(500)
     pg.screenshot(path='/tmp/t1_intro.png')
     jouer_match(pg,'t1',6)

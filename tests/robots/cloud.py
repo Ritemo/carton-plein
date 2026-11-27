@@ -18,7 +18,7 @@ with sync_playwright() as p:
     def tel():
         ctx = b.new_context(viewport={'width': 390, 'height': 844}); ctx.route(URL + '*', script)
         pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.goto(F); pg.evaluate(f"()=>{{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({{code:Math.random().toString(36).slice(2,10).toUpperCase().padEnd(8,'X'),pseudo:'',niveauChoisi:true}}));localStorage.setItem('carton-plein-cloud','{URL}')}}"); pg.reload(); pg.wait_for_timeout(500)
+        pg.goto(F); pg.evaluate(f"()=>{{localStorage.clear();localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({{code:Math.random().toString(36).slice(2,10).toUpperCase().padEnd(8,'X'),pseudo:'',niveauChoisi:true}}));localStorage.setItem('carton-plein-rapide','1');localStorage.setItem('carton-plein-cloud','{URL}')}}"); pg.reload(); pg.wait_for_timeout(500)
         return pg
     a = tel()
     a.evaluate("()=>{nouvelleCarriere('amiens'); C.pieces=777; sauver(); hub('vestiaire')}"); a.wait_for_timeout(5000)

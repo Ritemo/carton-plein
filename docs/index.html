@@ -701,6 +701,8 @@ body.direct .jauge .repere{display:none}
 #actionPlein .ap-terrain{max-width:330px;flex:0 1 auto}
 #actionPlein .terrain-action{max-height:58vh;width:auto;margin:0 auto}
 @media (min-aspect-ratio:1/1){#actionPlein .terrain-action{max-height:50vh}}
+.pique{display:flex;gap:8px;align-items:flex-start;background:#fff8e1;color:#1c1240;border:3px solid #000;border-radius:14px;padding:8px 10px;margin-bottom:8px;font-size:13px;text-align:left}
+.coupe-ligne.presse{background:linear-gradient(#8a6bff,#5a3fd6)}
 
 </style>
 </head>
@@ -1104,6 +1106,8 @@ function bilanMatch(tab) {
   C.serie = gp >= gc ? (C.serie || 0) + 1 : 0; ajoute(avancerObjectif('serie', C.serie, true));
   if (comp === 'nat' && C.coupes.nat && (C.coupes.nat.tour >= 2 || C.coupes.nat.gagne)) ajoute(avancerObjectif('coupe', 1));
   const recettes = recettesMatch(S.dom); gain += recettes;
+  if (C.pari) { if (gp < gc) gain -= 15; C.pari = false; }
+  if (opp === C.rival && coachRival()) { const cr = C.coachRival; if (gp > gc) cr.defaites++; else if (gp < gc) cr.victoires++; }
   C.pieces += gain;
   S.buteurs.forEach(ji => C.effectif[ji] && C.effectif[ji].buts++);
   C.effectif.forEach(j => j.matchs++);
@@ -2395,6 +2399,81 @@ function vieillir() {
 }
 
 // =====================================================================
+// HISTOIRE : entraîneur rival, conférences de presse, chapitres
+// =====================================================================
+const PRENOMS_COACH = ['Gérard', 'Lucien', 'Bernard', 'Raymond', 'Patrice', 'Didier', 'Hervé', 'Jean-Marc', 'Serge', 'Claude'];
+const NOMS_COACH = ['Vasseur', 'Morin', 'Lambert', 'Garnier', 'Roussel', 'Leclerc', 'Fabre', 'Boyer', 'Chevalier', 'Perrot'];
+function coachRival() {
+  if (!C.rival) return null;
+  if (!C.coachRival || C.coachRival.club !== C.rival) C.coachRival = { club: C.rival, nom: `${pick(PRENOMS_COACH)} ${pick(NOMS_COACH)}`, victoires: 0, defaites: 0 };
+  return C.coachRival;
+}
+const PIQUES = [
+  'Ils ont un joli paquet de cartes. Dommage qu’ils ne sachent pas s’en servir.',
+  'Mon intendant a lavé nos maillots deux fois. On va briller.',
+  'Leur coach ? Je ne le connais pas. Il est nouveau ?',
+  'Ce derby, on le gagne les yeux fermés. Peut-être même en dormant.',
+  'On a révisé leurs combos. Tous les deux.'
+];
+const REACTIONS = {
+  gagne: ['fulmine devant les journalistes et accuse l’arbitre.', 'a quitté le stade sans un mot.', 'reconnaît du bout des lèvres : « Ils étaient meilleurs. Aujourd’hui. »'],
+  perd: ['chambre en conférence : « Je l’avais dit. »', 'offre un café à son intendant pour fêter ça.', 'sourit : « On se reverra au match retour. Ah non, il n’y en a pas. »'],
+  nul: ['estime que « le nul était logique ».', 'parle déjà de la revanche.']
+};
+// conférences de presse : une question, trois réponses aux effets différents
+const PRESSE = [
+  { q: 'On vous annonce parmi les favoris. Vous visez quoi cette saison ?', r: [
+    { t: 'La première place, rien d’autre.', e: 'pari', d: 'Forme +6 au prochain match. Une défaite et le président retient 15 pièces.' },
+    { t: 'Match après match.', e: 'pieces', n: 10, d: '+10 pièces : les sponsors aiment la sagesse.' },
+    { t: 'Je fais confiance à mes jeunes.', e: 'xpJeunes', n: 4, d: '+4 expérience pour les 3 plus jeunes.' }] },
+  { q: 'Votre rival dit que vous jouez « petit bras ». Une réaction ?', r: [
+    { t: 'On répondra sur le terrain.', e: 'forme', n: 5, d: 'Forme +5 au prochain match.' },
+    { t: 'Je ne commente pas.', e: 'pieces', n: 10, d: '+10 pièces.' },
+    { t: '(Éclat de rire)', e: 'xp', n: 2, d: '+2 expérience pour tout le monde : le vestiaire a adoré.' }] },
+  { q: 'Votre meilleur buteur intéresserait de grands clubs. Il reste ?', r: [
+    { t: 'Il est intransférable.', e: 'xpButeur', n: 6, d: 'Ton meilleur buteur gagne 6 expérience.' },
+    { t: 'Tout est possible à ce prix-là.', e: 'pieces', n: 25, d: '+25 pièces : un agent a laissé une enveloppe de jetons.' },
+    { t: 'Demandez-lui !', e: 'forme', n: 3, d: 'Forme +3 au prochain match.' }] },
+  { q: 'Le stade sera plein samedi. Un message aux supporters ?', r: [
+    { t: 'Venez chanter, on a besoin de vous !', e: 'forme', n: 6, d: 'Forme +6 au prochain match.' },
+    { t: 'Merci pour votre fidélité.', e: 'pieces', n: 15, d: '+15 pièces de buvette.' },
+    { t: 'Les places sont encore à vendre.', e: 'pieces', n: 8, d: '+8 pièces.' }] },
+  { q: 'Votre équipe joue beaucoup le même combo. Prévisible ?', r: [
+    { t: 'On a d’autres cartes en main.', e: 'xp', n: 2, d: '+2 expérience pour tout le monde.' },
+    { t: 'Si ça marche, pourquoi changer ?', e: 'forme', n: 4, d: 'Forme +4 au prochain match.' },
+    { t: 'Secret professionnel.', e: 'pieces', n: 10, d: '+10 pièces.' }] }
+];
+const pressePrete = () => C && !S && C.journee > 0 && C.journee % 4 === 1 && C.presse !== `${C.saison}-${C.journee}` && !!prochainMatch();
+function repondrePresse(qi, ri) {
+  const R = PRESSE[qi].r[ri], j = C.effectif.map((x, i) => ({ x, i })).filter(o => !o.x.vendu);
+  if (R.e === 'pieces') C.pieces += R.n;
+  if (R.e === 'forme') C.forme = (C.forme || 0) + R.n;
+  if (R.e === 'pari') { C.forme = (C.forme || 0) + 6; C.pari = true; }
+  if (R.e === 'xp') j.forEach(o => (o.x.xp = (o.x.xp || 0) + R.n));
+  if (R.e === 'xpJeunes') j.sort((a, b) => (a.x.age || 25) - (b.x.age || 25)).slice(0, 3).forEach(o => (o.x.xp = (o.x.xp || 0) + R.n));
+  if (R.e === 'xpButeur') { const b = j.sort((a, b) => (b.x.buts || 0) - (a.x.buts || 0))[0]; if (b) b.x.xp = (b.x.xp || 0) + R.n; }
+  C.presse = `${C.saison}-${C.journee}`; sauver();
+  return R;
+}
+// chapitres : de petites scènes la première fois que ça arrive
+const CHAPITRES = [
+  { id: 'v1', ok: b => b.gp > b.gc, qui: 'dede', txt: c => `Première victoire avec ${c} ! J'ai gardé le ballon du match. Il ira dans la vitrine, à côté de mes vieilles chaussettes porte-bonheur.` },
+  { id: 'derby', ok: b => b.derby && b.gp > b.gc, qui: 'president', txt: () => 'On a gagné le derby ! Ce soir, toute la ville chante. Demain, on paie la tournée... avec modération.' },
+  { id: 'v10', ok: () => (C.victoires || 0) >= 10, qui: 'president', txt: c => `Dix victoires. On parle de ${c} dans les journaux du pays entier. Continue comme ça, coach.` },
+  { id: 'trophee', ok: b => b.trophee, qui: 'president', txt: () => 'Un trophée ! Le premier d’une longue série, j’espère. On va devoir agrandir la vitrine.' },
+  { id: 'm50', ok: () => (C.matchsCoach || 0) >= 50, qui: 'dede', txt: () => 'Cinquante matchs sur le banc. Les gamins du centre t’appellent « le chef ». Moi aussi, maintenant.' },
+  { id: 'l1', ok: () => C.div === 1, qui: 'president', txt: c => `${c} en première division. Il y a quelques années, on jouait devant trois cents personnes. Merci, coach.` }
+];
+function chapitreDuMatch(b) {
+  C.victoires = (C.victoires || 0) + (b.gp > b.gc ? 1 : 0); C.matchsCoach = (C.matchsCoach || 0) + 1;
+  C.chapitres = C.chapitres || {};
+  const ch = CHAPITRES.find(x => !C.chapitres[x.id] && x.ok(b));
+  if (!ch) return null;
+  C.chapitres[ch.id] = C.saison; sauver();
+  return { qui: ch.qui, txt: ch.txt(clubPar(C.club).nom) };
+}
+
+// =====================================================================
 // CARNET DE JEU : comment le joueur joue (pour analyser l'équilibre)
 // =====================================================================
 // Léger : des compteurs cumulés et un résumé des 40 derniers matchs, rangés dans la sauvegarde.
@@ -2945,6 +3024,7 @@ function vestiaire() {
       <div class="pm-detail">${STYLES[opp.style].txt}. Météo : ${met.txt.toLowerCase()}.${C.ansD1 ? ` Réputation ${C.ansD1} : tout le monde te prend au sérieux, adversaires +${Math.round(DIFF.r * C.ansD1 * 100)} %.` : ''}</div>
       <button class="btn gros large" id="bJouer">${COOP && C.coop.relais ? 'Jouer la 2e mi-temps' : COOP ? 'Jouer la 1re mi-temps' : ligue ? 'Jouer le match' : 'Jouer le ' + m.tour.toLowerCase()}</button>
     </div>
+    ${pressePrete() && !COOP ? `<button class="coupe-ligne presse" id="bPresse" data-merc="1">${img('journal')}<b class="lil">Conférence de presse</b><small>Les journalistes t’attendent</small></button>` : ''}
     ${carteEntrainement()}
     ${C.offres && C.offres.length && C.journee === 0 && !COOP ? `<button class="coupe-ligne mercato" id="bOffres" data-merc="1">${img('poignee')}<b class="lil">${C.offres.length} club${C.offres.length > 1 ? 's' : ''} te ${C.offres.length > 1 ? 'veulent' : 'veut'}</b><small>Voir les offres avant le 1er match</small></button>` : ''}
     ${fenetreMercato() ? `<button class="coupe-ligne mercato" id="bMerc" data-merc="1">${img('poignee')}<b class="lil">Mercato ${fenetreMercato() === 'ete' ? 'd’été' : 'd’hiver'} ouvert</b><small>${C.mercato ? C.mercato.liste.length : 0} joueurs à recruter</small></button>` : ''}
@@ -2960,6 +3040,12 @@ function vestiaire() {
   proposerFacile();
   on('bOffres', () => { Son.clic(); choixOffres(); });
   on('bEntr', () => { Son.clic(); ecranEntrainement(); });
+  on('bPresse', () => {
+    Son.clic(); const qi = hacher(`${C.saison}-${C.journee}-${C.club}`) % PRESSE.length, Q = PRESSE[qi];
+    modal(`${img('journal', 'grande-ic')}<h1 class="lil">Conférence de presse</h1><p><b>${Q.q}</b></p><div class="rgl">${Q.r.map((r, i) => `<button class="choix-rgl" data-rep="${i}"><b>${r.t}</b></button>`).join('')}</div>`, () => {
+      document.querySelectorAll('[data-rep]').forEach(b => (b.onclick = () => { const R = repondrePresse(qi, +b.dataset.rep); Son.clic(); modal(`${img('journal', 'grande-ic')}<h1 class="lil">C’est dans la boîte</h1><p>${R.d}</p><div class="btns"><button class="btn" id="pOk">Retour au vestiaire</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); maj(); })); }));
+    });
+  });
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));
@@ -3218,8 +3304,8 @@ function lancerMatch() {
   document.body.className = 'match';
   $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = '';
   nouveauMatch(prochainMatch());
-  const met = METEOS[S.meteo], opp = S.eq.ia, inf = S.info;
-  modal(`<div class="comp-tag lil ${S.comp === 'eur' ? 'europe' : S.comp === 'nat' ? 'coupe' : ''}">${inf.comp === 'ligue' ? inf.nom : inf.nom + ' · ' + inf.tour}</div><div class="coup-envoi">${blason(S.eq.p, 56)}<span class="lil">VS</span>${blason(opp, 56)}</div><h1 class="lil centre">${S.eq.p.nom} - ${opp.nom}</h1>
+  const met = METEOS[S.meteo], opp = S.eq.ia, inf = S.info, cr = S.opp === C.rival ? coachRival() : null;
+  modal(`${cr ? `<div class="pique">${img('journal', 'mini-ic')}<span><b>${cr.nom}</b>, coach de ${opp.nom} : « ${pick(PIQUES)} »</span></div>` : ''}<div class="comp-tag lil ${S.comp === 'eur' ? 'europe' : S.comp === 'nat' ? 'coupe' : ''}">${inf.comp === 'ligue' ? inf.nom : inf.nom + ' · ' + inf.tour}</div><div class="coup-envoi">${blason(S.eq.p, 56)}<span class="lil">VS</span>${blason(opp, 56)}</div><h1 class="lil centre">${S.eq.p.nom} - ${opp.nom}</h1>
     <div class="regles"><div>${img('tactique')}<span><b>${STYLES[opp.style].nom}</b> : ${STYLES[opp.style].txt}.</span></div><div>${img(met.ic)}<span><b>${met.nom}</b> : ${met.txt}.</span></div><div class="defi">${img('medaille')}<span><b>Défi du match</b> : ${DEFIS.find(x => x.id === S.defi).txt} (+${PRIME_DEFI} pièces)</span></div></div>
     <div class="btns"><button class="btn gros" id="mGo">Coup d'envoi</button></div>`, () => ($('#mGo').onclick = () => { Son.sifflet(false); fermerModal(); afficherMatch(); }));
 }
@@ -3621,8 +3707,10 @@ function seanceTab() {
 }
 function ecranFin(tab) {
   const gp = S.score.p, gc = S.score.ia, opp = S.eq.ia;
+  const derby = S.opp === C.rival, cr = derby ? coachRival() : null;
   const bilan = bilanMatch(tab), cp = bilan.coupe;
   if (COOP) finMatchCoop(gp, gc, cp && cp.gagne);
+  const chap = chapitreDuMatch({ gp, gc, derby, trophee: cp && cp.gagne });
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
@@ -3637,16 +3725,18 @@ function ecranFin(tab) {
     <div class="journal-une"><div class="une-logo lil">${img('journal', 'mini-ic')} La Une</div><div class="une-t">${bilan.une}</div><div class="une-s">Meilleure action : ${S.stats.meilleurCombo || 'aucune'} à ${S.stats.meilleur}</div>${C.journal[0] && C.journal[0].rival ? `<div class="une-s">${C.journal[0].rival}</div>` : ''}</div>
     ${bilan.defi ? `<div class="cp-res ${bilan.defiOk ? 'or' : ''}">${img('medaille', 'mini-ic')} Défi « ${bilan.defi.txt} » ${bilan.defiOk ? `réussi : +${PRIME_DEFI}` : 'manqué'}</div>` : ''}
     ${(bilan.objFaits || []).map(o => `<div class="cp-res or">${img('trophee', 'mini-ic')} Objectif du président atteint : ${OBJ_SAISON[o.id].txt(o)} (+${OBJ_SAISON[o.id].prime})</div>`).join('')}
+    ${cr ? `<div class="cp-res">${img('journal', 'mini-ic')} ${cr.nom} ${pick(REACTIONS[gp > gc ? 'gagne' : gp < gc ? 'perd' : 'nul'])}</div>` : ''}
     ${(bilan.progres || []).map(x => `<div class="cp-res">${img('fusee', 'mini-ic')} <b>${x.nom}</b> ${x.txt}</div>`).join('')}
     <div class="gain lil">${img('piece')} +${bilan.gain} pièces${bilan.recettes ? ` <small>(dont ${bilan.recettes} de recettes)</small>` : ''}</div>
     ${bilan.recompenses.length ? `<h2 class="lil centre">Choisis ta récompense</h2>
     <div class="recompenses">${bilan.recompenses.map((o, i) => `<button class="recomp" data-i="${i}">${recompHTML(o)}</button>`).join('')}</div>` : `<p class="petit centre">Pas de récompense sans victoire. On se rattrape au prochain match.</p><button class="btn gros" id="bFinOk">Retour au vestiaire</button>`}
   </div>`, 'plein');
-  const fo = $('#bFinOk'); if (fo) fo.onclick = () => { Son.clic(); S = null; hub('vestiaire'); };
+  const sortie = () => { S = null; chap ? scenes([{ qui: chap.qui, ic: 'journal', txt: chap.txt, bouton: 'Au vestiaire' }], () => hub('vestiaire')) : hub('vestiaire'); };
+  const fo = $('#bFinOk'); if (fo) fo.onclick = () => { Son.clic(); sortie(); };
   document.querySelectorAll('.recomp').forEach(b => (b.onclick = () => {
     Son.piece(); appliquerRecompense(bilan.recompenses[+b.dataset.i]); sauver();
     document.querySelectorAll('.recomp').forEach(x => x.classList.add(x === b ? 'pris' : 'pas-pris'));
-    setTimeout(() => { S = null; hub('vestiaire'); }, 650);
+    setTimeout(sortie, 650);
   }));
 }
 function recompHTML(o) {
@@ -3722,7 +3812,7 @@ function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); O
 
 function creerScene(r) {
   if (!r.valides.length) return null;
-  LENT = 2.4;
+  LENT = (() => { try { return localStorage.getItem('carton-plein-rapide') ? 0.25 : 2.4; } catch (e) { return 2.4; } })(); // les robots de test jouent en accéléré
   const att = enAttaque(), cartes = [...r.valides].sort((a, b) => (ORDRE_GESTE[a.t] ?? 2) - (ORDRE_GESTE[b.t] ?? 2));
   // plein écran : le terrain en grand, le calcul et la jauge juste en dessous
   const ancien = $('#actionPlein'); if (ancien) ancien.remove();

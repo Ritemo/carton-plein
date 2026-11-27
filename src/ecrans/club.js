@@ -294,6 +294,7 @@ function vestiaire() {
       <div class="pm-detail">${STYLES[opp.style].txt}. Météo : ${met.txt.toLowerCase()}.${C.ansD1 ? ` Réputation ${C.ansD1} : tout le monde te prend au sérieux, adversaires +${Math.round(DIFF.r * C.ansD1 * 100)} %.` : ''}</div>
       <button class="btn gros large" id="bJouer">${COOP && C.coop.relais ? 'Jouer la 2e mi-temps' : COOP ? 'Jouer la 1re mi-temps' : ligue ? 'Jouer le match' : 'Jouer le ' + m.tour.toLowerCase()}</button>
     </div>
+    ${pressePrete() && !COOP ? `<button class="coupe-ligne presse" id="bPresse" data-merc="1">${img('journal')}<b class="lil">Conférence de presse</b><small>Les journalistes t’attendent</small></button>` : ''}
     ${carteEntrainement()}
     ${C.offres && C.offres.length && C.journee === 0 && !COOP ? `<button class="coupe-ligne mercato" id="bOffres" data-merc="1">${img('poignee')}<b class="lil">${C.offres.length} club${C.offres.length > 1 ? 's' : ''} te ${C.offres.length > 1 ? 'veulent' : 'veut'}</b><small>Voir les offres avant le 1er match</small></button>` : ''}
     ${fenetreMercato() ? `<button class="coupe-ligne mercato" id="bMerc" data-merc="1">${img('poignee')}<b class="lil">Mercato ${fenetreMercato() === 'ete' ? 'd’été' : 'd’hiver'} ouvert</b><small>${C.mercato ? C.mercato.liste.length : 0} joueurs à recruter</small></button>` : ''}
@@ -309,6 +310,12 @@ function vestiaire() {
   proposerFacile();
   on('bOffres', () => { Son.clic(); choixOffres(); });
   on('bEntr', () => { Son.clic(); ecranEntrainement(); });
+  on('bPresse', () => {
+    Son.clic(); const qi = hacher(`${C.saison}-${C.journee}-${C.club}`) % PRESSE.length, Q = PRESSE[qi];
+    modal(`${img('journal', 'grande-ic')}<h1 class="lil">Conférence de presse</h1><p><b>${Q.q}</b></p><div class="rgl">${Q.r.map((r, i) => `<button class="choix-rgl" data-rep="${i}"><b>${r.t}</b></button>`).join('')}</div>`, () => {
+      document.querySelectorAll('[data-rep]').forEach(b => (b.onclick = () => { const R = repondrePresse(qi, +b.dataset.rep); Son.clic(); modal(`${img('journal', 'grande-ic')}<h1 class="lil">C’est dans la boîte</h1><p>${R.d}</p><div class="btns"><button class="btn" id="pOk">Retour au vestiaire</button></div>`, () => ($('#pOk').onclick = () => { fermerModal(); maj(); })); }));
+    });
+  });
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
   document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));

@@ -11,6 +11,7 @@
     "moteur/tirs.js",
     "moteur/installations.js",
     "moteur/vie.js",
+    "moteur/histoire.js",
     "moteur/carnet.js",
     "moteur/modes.js",
     "ecrans/tuto.js",
