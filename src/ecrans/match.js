@@ -36,7 +36,7 @@ function afficherMatch() {
   }));
   const adv = $('#adv');
   const nb = n => S.fourchette ? `<span class="fourch">${S.fourchette[0]}<small>-</small>${S.fourchette[1]}</span>` : `<span class="${n >= 100 ? 'l3' : ''}">${n}</span>`;
-  adv.classList.toggle('special', !!sp);
+  adv.classList.toggle('special', !!sp); adv.classList.remove('en-action');
   if (S.comp === 'direct') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${echap(S.ami.pseudo)} ${att ? 'défend' : 'attaque'}</div><div class="sous">${att ? 'Il pose ses défenseurs en même temps que toi. Fais le plus gros total.' : 'Il prépare son attaque en même temps. Défends fort.'}</div></div><div class="cible ${att ? 'mur' : 'danger'} lil">${img(att ? 'mur' : 'feu', 'fond')}<span>?</span></div>`;
   else if (att) adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">${sp ? sp.nom + ' !' : S.eq.ia.nom + ' défend'}</div><div class="sous">${sp ? sp.txt : (S.fourchette ? 'Le mur est quelque part dans la fourchette. Au-dessus : <b>but</b>. Dès 70 % : <b>occasion</b>.' : 'Dépasse le mur : <b>but</b>. Dès 70 % : <b>occasion</b>.')}</div></div><div class="cible mur lil">${img('mur', 'fond')}${nb(S.cible)}</div>`;
   else if (S.type === 'penalty') adv.innerHTML = `${blason(S.eq.ia, 40)}<div class="txt"><div class="titre lil">Penalty pour ${S.eq.ia.nom}</div><div class="sous">Faute dans la surface !</div></div><div class="cible danger lil">${img('filet', 'fond')}</div>`;
@@ -182,8 +182,9 @@ async function jouer(force) {
   noterChoix(r);
   S.phase = 'calcul'; S.anim = { r, pts: 0, mult: null, total: null };
   zoneAction();
+  SCENE = REDUIT ? null : creerScene(r);
   for (let i = 0; i < r.pts.length; i++) {
-    S.anim.pts += r.pts[i].v; Son.tick(i);
+    S.anim.pts += r.pts[i].v; Son.tick(i); gesteSuivant(SCENE);
     const el = document.querySelector(`#main .carte[data-id="${r.pts[i].c.id}"]`);
     if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + r.pts[i].v); }
     majCalcul(); await sleep(360);
@@ -198,6 +199,7 @@ async function jouer(force) {
   if (S.comp === 'direct') { try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
   else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
+  finAction(SCENE, t);
   await sleep(650);
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
   await sleep(250);

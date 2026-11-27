@@ -17,6 +17,7 @@
   "ecrans": [
     "ecrans/club.js",
     "ecrans/match.js",
+    "ecrans/action.js",
     "ecrans/social.js",
     "ecrans/direct.js",
     "ecrans/coop.js"

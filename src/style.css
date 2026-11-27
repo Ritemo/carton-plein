@@ -621,3 +621,17 @@ body.direct .jauge .repere{display:none}
 .coop-ligne{display:flex;align-items:center;gap:6px}
 .coop-ligne .coop-l{flex:1;min-width:0}
 .btn:disabled{opacity:.55}
+/* l'action sur le terrain, à la place du bandeau adverse pendant le calcul */
+#adv.en-action{padding:4px}
+.terrain-action{display:block;width:100%;height:auto;max-height:104px}
+.ta-herbe{fill:#2e8b47;stroke:#000;stroke-width:2}
+.ta-ligne{stroke:rgba(255,255,255,.55);stroke-width:1}
+.ta-but{fill:#fff}
+.ta-pion,.ta-ballon{transition:transform 300ms cubic-bezier(.4,0,.2,1)}
+.ta-pion.eux circle{opacity:.85}
+.ta-pion.saute circle{transform:scale(1.35);transition:transform 150ms ease-out}
+.ta-txt{font:800 8.5px system-ui,sans-serif;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:2.2px}
+@media (prefers-reduced-motion: reduce){.ta-pion,.ta-ballon{transition:none}}
+.ta-txt{font-size:10px}
+.ta-pop{animation:taPop 220ms cubic-bezier(.23,1,.32,1)}
+@keyframes taPop{from{opacity:0}to{opacity:1}}
