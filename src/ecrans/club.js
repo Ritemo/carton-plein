@@ -296,6 +296,7 @@ function vestiaire() {
     </div>
     ${pressePrete() && !COOP ? `<button class="coupe-ligne presse" id="bPresse" data-merc="1">${img('journal')}<b class="lil">Conférence de presse</b><small>Les journalistes t’attendent</small></button>` : ''}
     ${carteEntrainement()}
+    ${carteTourneeHTML()}
     ${C.offres && C.offres.length && C.journee === 0 && !COOP ? `<button class="coupe-ligne mercato" id="bOffres" data-merc="1">${img('poignee')}<b class="lil">${C.offres.length} club${C.offres.length > 1 ? 's' : ''} te ${C.offres.length > 1 ? 'veulent' : 'veut'}</b><small>Voir les offres avant le 1er match</small></button>` : ''}
     ${fenetreMercato() ? `<button class="coupe-ligne mercato" id="bMerc" data-merc="1">${img('poignee')}<b class="lil">Mercato ${fenetreMercato() === 'ete' ? 'd’été' : 'd’hiver'} ouvert</b><small>${C.mercato ? C.mercato.liste.length : 0} joueurs à recruter</small></button>` : ''}
     ${coupesResume()}
@@ -310,6 +311,7 @@ function vestiaire() {
   proposerFacile();
   on('bOffres', () => { Son.clic(); choixOffres(); });
   on('bEntr', () => { Son.clic(); ecranEntrainement(); });
+  on('bTournee', () => { Son.clic(); ecranTournee(); });
   on('bPresse', () => {
     Son.clic(); const qi = hacher(`${C.saison}-${C.journee}-${C.club}`) % PRESSE.length, Q = PRESSE[qi];
     modal(`${img('journal', 'grande-ic')}<h1 class="lil">Conférence de presse</h1><p><b>${Q.q}</b></p><div class="rgl">${Q.r.map((r, i) => `<button class="choix-rgl" data-rep="${i}"><b>${r.t}</b></button>`).join('')}</div>`, () => {

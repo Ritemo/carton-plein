@@ -375,6 +375,7 @@ function finMatch() {
   $('#flash').style.display = 'none';
   S.phase = 'fin'; Son.sifflet(true); Son.tension(0);
   if (S.tuto) return finTuto();
+  if (S.comp === 'tournee') return finMatchTournee();
   if (estAmical()) return ecranFinAmical();
   if (S.comp !== 'ligue' && S.score.p === S.score.ia) return seanceTab();
   ecranFin(null);

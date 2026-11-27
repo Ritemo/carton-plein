@@ -692,3 +692,25 @@ body.direct .jauge .repere{display:none}
 @media (min-aspect-ratio:1/1){#actionPlein .terrain-action{max-height:50vh}}
 .pique{display:flex;gap:8px;align-items:flex-start;background:#fff8e1;color:#1c1240;border:3px solid #000;border-radius:14px;padding:8px 10px;margin-bottom:8px;font-size:13px;text-align:left}
 .coupe-ligne.presse{background:linear-gradient(#8a6bff,#5a3fd6)}
+/* La Tournée */
+.coupe-ligne.tournee{background:linear-gradient(#ff9a3c,#e2582b)}
+.tournee-page h1 small{font-size:13px;opacity:.75;margin-left:6px}
+.tr-tete{display:flex;justify-content:space-between;align-items:center;margin:4px 0 8px;font-variant-numeric:tabular-nums}
+.tr-coeurs{font-size:22px;color:#ff5b6e;letter-spacing:2px}
+.tr-coeurs s{text-decoration:none;opacity:.2}
+.tr-carte{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px}
+.tr-etape{display:flex;gap:8px;align-items:stretch;opacity:.55}
+.tr-etape.ici{opacity:1}
+.tr-etape.passe{opacity:.8}
+.tr-num{width:26px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#1c1240;border:2px solid #000;font-size:14px;align-self:center;height:26px}
+.tr-etape.ici .tr-num{background:#ffd23f;color:#1c1240}
+.tr-noeud{flex:1;min-height:58px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 10px;border-radius:12px;border:2px solid #000;background:#2a1f5c;color:#fff;text-align:left;position:relative;font:inherit;transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.tr-noeud:active:not(:disabled){transform:scale(.97)}
+.tr-noeud small{font-size:11px;opacity:.8;line-height:1.2}
+.tr-noeud .mini-ic{width:20px;height:20px}
+.tr-noeud.tempete{background:#245a8a}.tr-noeud.costaud{background:#8a2b2b}.tr-noeud.vestiaire{background:#2b6b45}.tr-noeud.boss{background:linear-gradient(#b8860b,#7a5200)}
+.tr-etape.ici .tr-noeud{box-shadow:0 0 0 2px #ffd23f}
+.tr-noeud.choisi{box-shadow:0 0 0 2px #29c46a}
+.tr-noeud.gris{opacity:.35}
+.tr-noeud:disabled{cursor:default}
+.tr-res{position:absolute;top:6px;right:8px;font-style:normal;font-size:13px;color:#ffd23f}

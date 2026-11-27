@@ -24,6 +24,7 @@
     "ecrans/social.js",
     "ecrans/direct.js",
     "ecrans/coop.js",
-    "ecrans/entrainement.js"
+    "ecrans/entrainement.js",
+    "ecrans/tournee.js"
   ]
 }

@@ -11,7 +11,7 @@ function nouveauMatch(m, auto, opts) {
   if (opts && opts.graine != null) fixerGraine(opts.graine);
   const cp = m.comp !== 'ligue' ? C.coupes[m.comp] : null;
   S = { auto: !!auto, opp: oppId, comp: m.comp, info: m, cup: cp ? { k: cp.k, tour: cp.tour } : null, eq: { p: clubPar(C.club), ia: clubPar(oppId) }, dom: m.dom, stars: [...C.stars],
-    pioche: melanger(C.cartes.map(c => ({ ...c, val: valeurCarte(c) }))), defausse: [], main: [], sel: [], score: { p: 0, ia: 0 }, tf: 0,
+    pioche: melanger(C.cartes.concat((opts && opts.renforts) || []).map(c => ({ ...c, val: valeurCarte(c) }))), defausse: [], main: [], sel: [], score: { p: 0, ia: 0 }, tf: 0,
     changements: CHANGEMENTS + (C.stars.includes('prepa') ? 1 : 0), phase: 'choix', attente: effetsVides(), actif: effetsVides(), histo: [], buteurs: [], defi: pick(DEFIS).id, evts: [], stats: { butsCombos: [], trios: 0, cartons: 0, but1mt: false, consigneUtile: false, meilleur: 0, meilleurCombo: '', arrets: 0 } };
   S.style = S.eq.ia.style;
   S.meteo = C.meteoProchaine || pick(Object.keys(METEOS));
@@ -70,7 +70,7 @@ const PREF_STYLE = {
 function choisirCartesAdv() {
   const att = enAttaque(), cote = att ? 'att' : 'def';
   // combien de cartes : selon la division et la compétition
-  const eur = S.comp === 'eur' || S.comp === 'defi', d = S.comp === 'ombre' ? 2 : C.div;
+  const eur = S.comp === 'eur' || S.comp === 'defi' || !!S.boss, d = S.comp === 'ombre' ? 2 : C.div;
   let n = eur ? 2 : d === 1 ? (hasard() < 0.35 ? 2 : 1) : d === 2 ? 1 : (hasard() < 0.6 ? 1 : 0);
   if (S.type && S.type !== 'normal') n = Math.min(n, 1);
   if (S.tuto === 2) n = 1;

@@ -2,7 +2,7 @@
 // MODES ENTRE AMIS : ombre, défi de la semaine, direct (règles sans affichage)
 // =====================================================================
 // Ces matchs ne comptent pas pour la carrière : ni classement ni coupe, un peu de pièces seulement.
-const MODES = { ombre: { nom: 'Contre l’ombre', ic: 'epees', gain: [18, 8, 4] }, defi: { nom: 'Défi de la semaine', ic: 'medaille', gain: [12, 6, 4] }, direct: { nom: 'Match en direct', ic: 'poignee', gain: [20, 10, 6] } };
+const MODES = { ombre: { nom: 'Contre l’ombre', ic: 'epees', gain: [18, 8, 4] }, defi: { nom: 'Défi de la semaine', ic: 'medaille', gain: [12, 6, 4] }, direct: { nom: 'Match en direct', ic: 'poignee', gain: [20, 10, 6] }, tournee: { nom: 'La Tournée', ic: 'globe', gain: [0, 0, 0] } };
 const DEFI_ESSAIS = 3;
 const estAmical = () => !!(S && MODES[S.comp]);
 
