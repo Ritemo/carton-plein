@@ -86,11 +86,33 @@ const COMBOS_ATT = [
   { id: 'unedeux', nom: 'Une-deux', mult: 1.5, req: { passe: 2 }, txt: '2 Passes', ics: ['passe', 'passe'] },
   { id: 'simple', nom: 'Action simple', mult: 1, req: {}, txt: 'N’importe quelles cartes', ics: ['ballon'] }
 ];
+// Défense : comme en attaque, chaque combinaison demande des cartes précises.
+// Bloc et Intervention sont les solutions de repli : elles ne s'améliorent pas.
 const COMBOS_DEF = [
-  { id: 'muraille', nom: 'Muraille', mult: 2, txt: '3 défenseurs + Gardien', ics: ['tacle', 'marquage', 'interception', 'gardien'] },
-  { id: 'bloc', nom: 'Bloc', mult: 1.5, txt: '2 cartes de défense ou plus', ics: ['tacle', 'interception'] },
-  { id: 'intervention', nom: 'Intervention', mult: 1, txt: '1 carte de défense', ics: ['tacle'] }
+  { id: 'muraille', nom: 'Muraille', mult: 2.25, req: { gardien: 1 }, autres: 3, txt: 'Gardien + 3 défenseurs', ics: ['gardien', 'tacle', 'marquage', 'interception'] },
+  { id: 'verrou', nom: 'Verrou', mult: 2.25, req: { marquage: 1, tacle: 1, interception: 1 }, txt: 'Marquage + Tacle + Interception', ics: ['marquage', 'tacle', 'interception'] },
+  { id: 'recup', nom: 'Récupération', mult: 1.75, req: { interception: 1, tacle: 1 }, txt: 'Interception + Tacle', ics: ['interception', 'tacle'] },
+  { id: 'sortie', nom: 'Sortie du gardien', mult: 1.5, req: { gardien: 1, interception: 1 }, txt: 'Gardien + Interception', ics: ['gardien', 'interception'] },
+  { id: 'serre', nom: 'Marquage serré', mult: 1.5, req: { marquage: 1, tacle: 1 }, txt: 'Marquage + Tacle', ics: ['marquage', 'tacle'] },
+  { id: 'bloc', nom: 'Bloc', mult: 1.25, req: {}, min: 2, repli: true, txt: '2 cartes de défense quelconques', ics: ['tacle', 'interception'] },
+  { id: 'intervention', nom: 'Intervention', mult: 1, req: {}, min: 1, repli: true, txt: '1 carte de défense', ics: ['tacle'] }
 ];
+COMBOS_ATT.find(k => k.id === 'simple').repli = true;
+// une combinaison est-elle réalisée par ces cartes ?
+function comboRealise(k, n, nb) {
+  if (nb < (k.min || 1)) return false;
+  if (!Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q)) return false;
+  if (k.autres) { const hors = nb - Object.values(k.req).reduce((a, b) => a + b, 0); if (hors < k.autres) return false; }
+  return true;
+}
+// fiches tactiques : niveau 5 au plus, prix qui monte de moitié à chaque niveau, pas de fiche pour les replis
+const NIV_MAX = 5;
+const prixNiveau = niv => Math.round(60 * Math.pow(1.5, niv - 1) / 5) * 5;
+const ficheAmeliorable = k => !k.repli && k.id !== 'cf';
+// combinaisons dont la fiche peut encore monter
+const fichesOuvertes = () => tousCombos().filter(k => ficheAmeliorable(k) && ((C.niveaux[k.id] || 1) < NIV_MAX));
+function monterFiche(id) { const k = comboPar(id); if (!k || !ficheAmeliorable(k)) return false; const n = C.niveaux[id] || 1; if (n >= NIV_MAX) return false; C.niveaux[id] = n + 1; return true; }
+const multEffectif = k => k.mult + (ficheAmeliorable(k) ? 0.5 * (((typeof C !== 'undefined' && C && C.niveaux && C.niveaux[k.id]) || 1) - 1) : 0);
 const LECTURE = { interception: ['tiki', 'unedeux', 'contre'], marquage: ['ct', 'debord'], tacle: ['solo', 'percee'] };
 const tousCombos = () => COMBOS_ATT.concat(COMBOS_DEF);
 const comboPar = id => tousCombos().find(k => k.id === id);

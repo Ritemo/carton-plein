@@ -259,6 +259,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV18 ? `Grosse nouveauté en défense : comme en attaque, chaque combinaison demande ses cartes. Muraille (Gardien + 3), Verrou (Marquage + Tacle + Interception), Récupération, Marquage serré, Sortie du gardien. Bloc n'est plus qu'un repli et n'a plus de fiche${C.nouveautesV18 > 1 ? ` : on t'a remboursé ${C.nouveautesV18} pièces` : ''}. Les fiches s'arrêtent au niveau 5 et coûtent plus cher à chaque niveau.`
       : C.nouveautesV17 ? `Bonne nouvelle pour les consignes : tu peux en ajouter une à ton action, en plus de tes cartes. Plus besoin de sacrifier un temps fort pour préparer le suivant.`
       : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
@@ -290,7 +291,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17 || C.nouveautesV18) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; C.nouveautesV18 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
   brancherBandeauCoop();
   proposerFacile();
@@ -342,7 +343,7 @@ function effectif() {
   const cartes = C.cartes.map(c => ({ ...c, val: valeurCarte(c) }))
     .filter(c => FILTRE === 'tout' || (FILTRE === 'att' ? TYPES[c.t].att === true : FILTRE === 'cons' ? !!TYPES[c.t].consigne : TYPES[c.t].att === false))
     .sort((a, b) => ((TYPES[b.t].att === true) - (TYPES[a.t].att === true)) || ((TYPES[a.t].consigne ? 1 : 0) - (TYPES[b.t].consigne ? 1 : 0)) || a.t.localeCompare(b.t) || b.val - a.val);
-  const combos = COMBOS_ATT.filter(k => k.id !== 'simple').concat(COMBOS_DEF.slice(0, 2));
+  const combos = tousCombos().filter(ficheAmeliorable);
   vue(`<div class="page">${segs}
     <div class="filtres">${[['tout', 'Tout'], ['att', 'Attaque'], ['def', 'Défense'], ['cons', 'Consignes']].map(([k, n]) => `<button class="chip ${FILTRE === k ? 'on' : ''}" data-f="${k}">${n}</button>`).join('')}<span class="compte">${C.cartes.length} cartes</span></div>
     <div class="grille-cartes">${cartes.map(c => carteHTML(c)).join('')}</div>
@@ -407,15 +408,15 @@ function ficheCarte(id) {
 }
 
 // ---------- Boutique ----------
-const prixFiche = id => 60 + 20 * ((C.niveaux[id] || 1) - 1);
-const comboFavori = () => { const K = C.carnet && C.carnet.combos; if (!K) return null; const e = Object.entries(K).filter(([id]) => comboPar(id) && !['simple', 'intervention', 'cf'].includes(id)).sort((a, b) => b[1] - a[1])[0]; return e ? comboPar(e[0]) : null; };
+const prixFiche = id => prixNiveau(C.niveaux[id] || 1);
+const comboFavori = () => { const K = C.carnet && C.carnet.combos; if (!K) return null; const e = Object.entries(K).filter(([id]) => comboPar(id) && ficheAmeliorable(comboPar(id))).sort((a, b) => b[1] - a[1])[0]; return e ? comboPar(e[0]) : null; };
 function choisirFiche() {
-  const fav = comboFavori(), liste = tousCombos().filter(k => !['simple', 'intervention'].includes(k.id));
+  const fav = comboFavori(), liste = tousCombos().filter(ficheAmeliorable);
   const nbJ = id => (C.carnet && C.carnet.combos && C.carnet.combos[id]) || 0; liste.sort((a, b) => nbJ(b.id) - nbJ(a.id));
   modal(`<h1 class="lil">Fiche tactique</h1><p class="petit">Choisis la combinaison à faire progresser.${fav ? ` Ta plus jouée : <b>${fav.nom}</b>.` : ''}</p>
-    <div class="liste-fiches">${liste.map(k => { const n = C.niveaux[k.id] || 1, p = prixFiche(k.id); return `<button class="lcombo fiche-ch" data-f="${k.id}" ${C.pieces < p ? 'disabled' : ''}><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>niv. ${n} → ${n + 1} · joué ${nbJ(k.id)} fois</small></div><div class="lm"><span class="lil">${p}</span>${img('piece', 'mini-ic')}</div></button>`; }).join('')}</div>
+    <div class="liste-fiches">${liste.map(k => { const n = C.niveaux[k.id] || 1, p = prixFiche(k.id), maxi = n >= NIV_MAX; return `<button class="lcombo fiche-ch" data-f="${k.id}" ${maxi || C.pieces < p ? 'disabled' : ''}><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>${maxi ? `niveau max (${NIV_MAX})` : `niv. ${n} → ${n + 1}`} · joué ${nbJ(k.id)} fois</small></div><div class="lm">${maxi ? '' : `<span class="lil">${p}</span>${img('piece', 'mini-ic')}`}</div></button>`; }).join('')}</div>
     <div class="btns"><button class="btn sec" id="fNon">Annuler</button></div>`, () => {
-    document.querySelectorAll('.fiche-ch').forEach(bt => (bt.onclick = () => { const id = bt.dataset.f, p = prixFiche(id); if (C.pieces < p) return; C.pieces -= p; C.niveaux[id] = (C.niveaux[id] || 1) + 1; C.boutique.achete.fiche = true; Son.piece(); toast(`${comboPar(id).nom} niveau ${C.niveaux[id]}`); fermerModal(); maj(); }));
+    document.querySelectorAll('.fiche-ch').forEach(bt => (bt.onclick = () => { const id = bt.dataset.f, p = prixFiche(id); if (C.pieces < p || (C.niveaux[id] || 1) >= NIV_MAX) return; C.pieces -= p; monterFiche(id); C.boutique.achete.fiche = true; Son.piece(); toast(`${comboPar(id).nom} niveau ${C.niveaux[id]}`); fermerModal(); maj(); }));
     $('#fNon').onclick = fermerModal;
   });
 }

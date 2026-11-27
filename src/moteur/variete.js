@@ -27,7 +27,7 @@ const DILEMMES = [
     a: { lib: 'Vendre', eff: '+120 pièces, tu perds ta meilleure Frappe', f: () => { const f = C.cartes.filter(c => c.t === 'frappe').sort((x, y) => valeurCarte(y) - valeurCarte(x))[0]; if (f) C.cartes = C.cartes.filter(c => c.id !== f.id); C.pieces += 120; } },
     b: { lib: 'Le garder', eff: 'Ta meilleure Frappe gagne +1 niveau', f: () => { const f = C.cartes.filter(c => c.t === 'frappe' && c.niv < RARETES[c.r].max).sort((x, y) => valeurCarte(y) - valeurCarte(x))[0]; if (f) f.niv++; } } },
   { id: 'video', titre: 'Vidéo ou physique ?', txt: 'Dédé a préparé la salle vidéo. Le préparateur, lui, veut faire courir tout le monde.',
-    a: { lib: 'Séance vidéo', eff: '+1 niveau sur une combinaison au hasard', f: () => { const k = pick(COMBOS_ATT.filter(x => x.id !== 'simple')); C.niveaux[k.id] = (C.niveaux[k.id] || 1) + 1; } },
+    a: { lib: 'Séance vidéo', eff: '+1 niveau sur une combinaison au hasard', f: () => { const L = fichesOuvertes(); if (L.length) monterFiche(pick(L).id); else C.pieces += 60; } },
     b: { lib: 'Séance physique', eff: '+1 niveau sur 2 cartes de défense', f: () => melanger(C.cartes.filter(c => !TYPES[c.t].att && c.niv < RARETES[c.r].max)).slice(0, 2).forEach(c => c.niv++) } },
   { id: 'ultras', titre: 'Les ultras sont venus', txt: 'Ils veulent voir des joueurs qui mouillent le maillot.',
     a: { lib: 'Promettre du combat', eff: 'Nouvelle carte Tacle épique', f: () => C.cartes.push(nouvelleCarte('tacle', jiPourType('tacle'), 'epique')) },

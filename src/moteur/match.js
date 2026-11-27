@@ -2,7 +2,7 @@
 // =====================================================================
 // MATCH (S)
 // =====================================================================
-const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.2, r: 0.32 };
+const DIFF = { 3: 0.85, 2: 1.5, 1: 2.15, j: 0.02, s: 0.1, r: 0.25 };
 let S = null;
 const NB_TF = 6, CHANGEMENTS = 3, PIOCHE_TF = 3; // après chaque temps fort, on ne pioche que 3 cartes (main pleine à la mi-temps)
 const aStar = id => S && S.stars.includes(id);
@@ -147,11 +147,11 @@ function calcul(cartes) {
   S.feinteActive = cartes.some(c => c.t === 'feinte');
   const n = compteTypes(valides);
   let combo;
-  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
-  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
+  // la meilleure combinaison réalisée, fiche comprise
+  combo = (att ? COMBOS_ATT : COMBOS_DEF).filter(k => comboRealise(k, n, valides.length)).sort((a, b) => multEffectif(b) - multEffectif(a))[0] || (att ? COMBOS_ATT[COMBOS_ATT.length - 1] : COMBOS_DEF[COMBOS_DEF.length - 1]);
   const pts = valides.map(c => valeurEnMatch(c, att, n));
   if (att && S.type === 'cf') combo = { id: 'cf', nom: 'Coup franc', mult: 3 };
-  const niv = C.niveaux[combo.id] || 1;
+  const niv = ficheAmeliorable(combo) ? Math.min(NIV_MAX, C.niveaux[combo.id] || 1) : 1;
   let mult = combo.mult + 0.5 * (niv - 1); const bonusMult = [];
   if (advActif('marquage') && pts.length) { const best = pts.reduce((a, b) => (b.v > a.v ? b : a)); best.v = Math.floor(best.v / 2); best.notes.push('marquée ÷2'); }
   if (att && advActif('lecture') && S.favori && combo.id === S.favori.id && combo.mult > 1) { mult -= 1; bonusMult.push('Lecture du jeu −1'); }
@@ -196,12 +196,16 @@ function possibilites() {
     COMBOS_ATT.filter(k => k.id !== 'simple').forEach(k => {
       const sel = [];
       const ok = Object.entries(k.req).every(([t, q]) => { const l = utiles.filter(c => c.t === t).slice(0, q); sel.push(...l); return l.length >= q; });
-      if (ok && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(k.mult + 0.5 * ((C.niveaux[k.id] || 1) - 1))}`, sel });
+      if (ok && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(multEffectif(k))}`, sel });
     });
   }
   if (!att) {
-    const g = utiles.find(c => c.t === 'gardien'), autres = utiles.filter(c => c.t !== 'gardien');
-    if (g && autres.length >= 3 && max >= 4) out.push({ type: 'combo', id: 'muraille', lib: `${COMBOS_DEF[0].nom} ×${fmt(COMBOS_DEF[0].mult)}`, sel: [g, ...autres.slice(0, 3)] });
+    COMBOS_DEF.filter(k => !k.repli).forEach(k => {
+      const sel = [];
+      const ok = Object.entries(k.req).every(([t, q]) => { const l = utiles.filter(c => c.t === t).slice(0, q); sel.push(...l); return l.length >= q; });
+      if (ok && k.autres) sel.push(...utiles.filter(c => !sel.includes(c)).slice(0, k.autres));
+      if (ok && comboRealise(k, compteTypes(sel), sel.length) && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(multEffectif(k))}`, sel });
+    });
   }
   // couleurs : Trio ou Carton plein
   const parK = {}; utiles.forEach(c => { const k = couleurCarte(c); (parK[k] = parK[k] || []).push(c); });
@@ -233,12 +237,20 @@ function indice() {
       return { k, manque, deja };
     }).filter(o => o.deja && o.manque.length === 1 && nbActions(sel) + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
-  } else if (r.combo && r.combo.id !== 'muraille') {
-    const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
-    const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
-    const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
-    if (r.valides.length >= 2 && besoin <= 2 && nbActions(sel) + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
-      return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
+  } else if (r.combo) {
+    // défense : la combinaison à une carte près (deux pour la Muraille), si ces cartes sont en main
+    const art = t => (t === 'interception' ? 'une' : 'un'), nomT = t => TYPES[t].nom;
+    const proches = COMBOS_DEF.filter(k => !k.repli && multEffectif(k) > multEffectif(r.combo)).map(k => {
+      const manque = Object.entries(k.req).flatMap(([t, q]) => Array(Math.max(0, q - (compte[t] || 0))).fill(t));
+      const enTrop = k.autres ? Math.max(0, k.autres - (r.valides.length - Object.entries(k.req).reduce((a, [t, q]) => a + Math.min(q, compte[t] || 0), 0))) : 0;
+      return { k, manque, enTrop };
+    }).filter(o => { const tot = o.manque.length + o.enTrop; return tot >= 1 && tot <= (o.k.autres ? 2 : 1) && nbActions(sel) + tot <= max && o.manque.every(t => main.some(c => c.t === t)) && main.filter(c => !o.manque.includes(c.t)).length >= o.enTrop; });
+    if (proches.length) {
+      const nb = o => o.manque.length + o.enTrop;
+      const o = proches.sort((a, b) => nb(a) - nb(b) || multEffectif(b.k) - multEffectif(a.k))[0], m = o.manque.map(t => `${art(t)} ${nomT(t)}`);
+      if (o.enTrop) m.push(o.enTrop === 1 ? 'un défenseur' : `${o.enTrop} défenseurs`);
+      return `Encore ${m.join(' et ')} : ${o.k.nom} ×${fmt(multEffectif(o.k))}`;
+    }
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));

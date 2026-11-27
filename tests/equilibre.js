@@ -23,7 +23,7 @@ function carriere(skill,saisons,club){
   while((m=prochainMatch())){
    const dl=dilemmeDuJour(); if(dl) resoudreDilemme(dl, Math.random()<.5?'a':'b');
    const b=C.boutique; if(b.star&&C.stars.length<MAX_STARS){const st=STARS.find(x=>x.id===b.star); if(C.pieces>=PRIX_STAR[st.r]){C.pieces-=PRIX_STAR[st.r];C.stars.push(b.star);}}
-   if(C.pieces>=60){C.pieces-=60;C.niveaux[b.fiche]=(C.niveaux[b.fiche]||1)+1;}
+   { const L=fichesOuvertes().sort((x,y)=>(C.niveaux[x.id]||1)-(C.niveaux[y.id]||1)); for(const k of L.slice(0,2)){ const p=prixNiveau(C.niveaux[k.id]||1); if(C.pieces>=p+40){C.pieces-=p; monterFiche(k.id);} } }
    // formation : promouvoir les jeunes prêts à potentiel >=3, vendre les autres
    C.formation.jeunes.filter(j=>j.prog>=100).forEach(j=>{ if(j.pot>=3) promouvoir(j.id); else vendreJeune(j.id); });
    if(CENTRE[C.formation.niveau].prix && C.pieces>CENTRE[C.formation.niveau].prix+100) agrandirCentre();

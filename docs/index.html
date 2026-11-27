@@ -741,11 +741,33 @@ const COMBOS_ATT = [
   { id: 'unedeux', nom: 'Une-deux', mult: 1.5, req: { passe: 2 }, txt: '2 Passes', ics: ['passe', 'passe'] },
   { id: 'simple', nom: 'Action simple', mult: 1, req: {}, txt: 'N’importe quelles cartes', ics: ['ballon'] }
 ];
+// Défense : comme en attaque, chaque combinaison demande des cartes précises.
+// Bloc et Intervention sont les solutions de repli : elles ne s'améliorent pas.
 const COMBOS_DEF = [
-  { id: 'muraille', nom: 'Muraille', mult: 2, txt: '3 défenseurs + Gardien', ics: ['tacle', 'marquage', 'interception', 'gardien'] },
-  { id: 'bloc', nom: 'Bloc', mult: 1.5, txt: '2 cartes de défense ou plus', ics: ['tacle', 'interception'] },
-  { id: 'intervention', nom: 'Intervention', mult: 1, txt: '1 carte de défense', ics: ['tacle'] }
+  { id: 'muraille', nom: 'Muraille', mult: 2.25, req: { gardien: 1 }, autres: 3, txt: 'Gardien + 3 défenseurs', ics: ['gardien', 'tacle', 'marquage', 'interception'] },
+  { id: 'verrou', nom: 'Verrou', mult: 2.25, req: { marquage: 1, tacle: 1, interception: 1 }, txt: 'Marquage + Tacle + Interception', ics: ['marquage', 'tacle', 'interception'] },
+  { id: 'recup', nom: 'Récupération', mult: 1.75, req: { interception: 1, tacle: 1 }, txt: 'Interception + Tacle', ics: ['interception', 'tacle'] },
+  { id: 'sortie', nom: 'Sortie du gardien', mult: 1.5, req: { gardien: 1, interception: 1 }, txt: 'Gardien + Interception', ics: ['gardien', 'interception'] },
+  { id: 'serre', nom: 'Marquage serré', mult: 1.5, req: { marquage: 1, tacle: 1 }, txt: 'Marquage + Tacle', ics: ['marquage', 'tacle'] },
+  { id: 'bloc', nom: 'Bloc', mult: 1.25, req: {}, min: 2, repli: true, txt: '2 cartes de défense quelconques', ics: ['tacle', 'interception'] },
+  { id: 'intervention', nom: 'Intervention', mult: 1, req: {}, min: 1, repli: true, txt: '1 carte de défense', ics: ['tacle'] }
 ];
+COMBOS_ATT.find(k => k.id === 'simple').repli = true;
+// une combinaison est-elle réalisée par ces cartes ?
+function comboRealise(k, n, nb) {
+  if (nb < (k.min || 1)) return false;
+  if (!Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q)) return false;
+  if (k.autres) { const hors = nb - Object.values(k.req).reduce((a, b) => a + b, 0); if (hors < k.autres) return false; }
+  return true;
+}
+// fiches tactiques : niveau 5 au plus, prix qui monte de moitié à chaque niveau, pas de fiche pour les replis
+const NIV_MAX = 5;
+const prixNiveau = niv => Math.round(60 * Math.pow(1.5, niv - 1) / 5) * 5;
+const ficheAmeliorable = k => !k.repli && k.id !== 'cf';
+// combinaisons dont la fiche peut encore monter
+const fichesOuvertes = () => tousCombos().filter(k => ficheAmeliorable(k) && ((C.niveaux[k.id] || 1) < NIV_MAX));
+function monterFiche(id) { const k = comboPar(id); if (!k || !ficheAmeliorable(k)) return false; const n = C.niveaux[id] || 1; if (n >= NIV_MAX) return false; C.niveaux[id] = n + 1; return true; }
+const multEffectif = k => k.mult + (ficheAmeliorable(k) ? 0.5 * (((typeof C !== 'undefined' && C && C.niveaux && C.niveaux[k.id]) || 1) - 1) : 0);
 const LECTURE = { interception: ['tiki', 'unedeux', 'contre'], marquage: ['ct', 'debord'], tacle: ['solo', 'percee'] };
 const tousCombos = () => COMBOS_ATT.concat(COMBOS_DEF);
 const comboPar = id => tousCombos().find(k => k.id === id);
@@ -840,8 +862,18 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
   // titres de division (champion de Ligue 3, de Ligue 2...) : désormais dans la vitrine
   if ((c.v || 1) < 8) (c.palmares || []).forEach(p => { if (p.rang === 1 && !c.trophees.some(t => t.k === 'titre' && t.s === p.s)) c.trophees.push({ s: p.s, k: 'titre', nom: `Champion de ${PAYS[p.pays || c.pays].divs[p.div]}` }); });
+  if ((c.v || 1) < 9) {
+    // nouvelles défenses : Bloc devient un repli sans fiche. On rembourse ce qui a été payé (anciens prix).
+    let rendu = 0; const ancienPrix = l => 60 + 20 * (l - 1);
+    Object.entries(c.niveaux || {}).forEach(([id, n]) => {
+      const k = comboPar(id), garde = !k || !ficheAmeliorable(k) ? 1 : Math.min(n, NIV_MAX);
+      for (let l = garde; l < n; l++) rendu += ancienPrix(l);
+      if (garde <= 1) delete c.niveaux[id]; else c.niveaux[id] = garde;
+    });
+    c.pieces += rendu; c.nouveautesV18 = rendu || true;
+  }
   C = av;
-  c.v = 8; return c;
+  c.v = 9; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -921,7 +953,7 @@ function simulerJournee() { // les autres matchs de la journée
 function nouvelleBoutique() {
   const libres = STARS.filter(s => !C.stars.includes(s.id));
   const st = libres.length ? pick(libres.filter(s => s.r !== 'epique' || C.div <= 2).length ? libres.filter(s => s.r !== 'epique' || C.div <= 2) : libres) : null;
-  const combo = pick(COMBOS_ATT.filter(k => k.id !== 'simple').concat(COMBOS_DEF.slice(0, 2)));
+  const combo = pick(fichesOuvertes().length ? fichesOuvertes() : COMBOS_ATT.filter(k => !k.repli));
   const r = hasard() < 0.5 ? 'rare' : C.div <= 2 ? 'epique' : 'rare';
   const t = pick(Object.keys(TYPES));
   C.boutique = { star: st ? st.id : null, fiche: combo.id, carte: { t, r, prix: r === 'rare' ? 70 : 120 }, achete: {} };
@@ -942,7 +974,7 @@ function genRecompenses(europe) {
   if (upg.length) { const c = pick(upg); out.push({ k: 'niveau', id: c.id }); }
   const libres = STARS.filter(s => !C.stars.includes(s.id) && (s.r !== 'epique' || C.div <= 2));
   if (libres.length && C.stars.length < MAX_STARS && hasard() < 0.6) out.push({ k: 'star', id: pick(libres).id });
-  else out.push({ k: 'fiche', id: pick(COMBOS_ATT.filter(x => x.id !== 'simple').concat(COMBOS_DEF.slice(0, 2))).id });
+  else if (fichesOuvertes().length) out.push({ k: 'fiche', id: pick(fichesOuvertes()).id });
   if (out.length < 3) out.push({ k: 'pieces', n: 40 });
   return out;
 }
@@ -950,7 +982,7 @@ function appliquerRecompense(o) {
   if (o.k === 'carte') C.cartes.push(nouvelleCarte(o.t, o.ji, o.r));
   if (o.k === 'niveau') { const c = C.cartes.find(x => x.id === o.id); if (c) c.niv++; }
   if (o.k === 'star' && C.stars.length < MAX_STARS) C.stars.push(o.id);
-  if (o.k === 'fiche') C.niveaux[o.id] = (C.niveaux[o.id] || 1) + 1;
+  if (o.k === 'fiche' && !monterFiche(o.id)) C.pieces += 60; // fiche au maximum : remplacée par des pièces
   if (o.k === 'pieces') C.pieces += o.n;
 }
 
@@ -1092,7 +1124,7 @@ function accepterOffre(id) {
 // =====================================================================
 // MATCH (S)
 // =====================================================================
-const DIFF = { 3: 0.85, 2: 1.5, 1: 2.35, j: 0.02, s: 0.2, r: 0.32 };
+const DIFF = { 3: 0.85, 2: 1.5, 1: 2.15, j: 0.02, s: 0.1, r: 0.25 };
 let S = null;
 const NB_TF = 6, CHANGEMENTS = 3, PIOCHE_TF = 3; // après chaque temps fort, on ne pioche que 3 cartes (main pleine à la mi-temps)
 const aStar = id => S && S.stars.includes(id);
@@ -1237,11 +1269,11 @@ function calcul(cartes) {
   S.feinteActive = cartes.some(c => c.t === 'feinte');
   const n = compteTypes(valides);
   let combo;
-  if (att) combo = COMBOS_ATT.find(k => Object.entries(k.req).every(([t, q]) => (n[t] || 0) >= q));
-  else { const nDef = valides.filter(c => c.t !== 'gardien').length, g = valides.some(c => c.t === 'gardien'); combo = nDef >= 3 && g ? COMBOS_DEF[0] : valides.length >= 2 ? COMBOS_DEF[1] : COMBOS_DEF[2]; }
+  // la meilleure combinaison réalisée, fiche comprise
+  combo = (att ? COMBOS_ATT : COMBOS_DEF).filter(k => comboRealise(k, n, valides.length)).sort((a, b) => multEffectif(b) - multEffectif(a))[0] || (att ? COMBOS_ATT[COMBOS_ATT.length - 1] : COMBOS_DEF[COMBOS_DEF.length - 1]);
   const pts = valides.map(c => valeurEnMatch(c, att, n));
   if (att && S.type === 'cf') combo = { id: 'cf', nom: 'Coup franc', mult: 3 };
-  const niv = C.niveaux[combo.id] || 1;
+  const niv = ficheAmeliorable(combo) ? Math.min(NIV_MAX, C.niveaux[combo.id] || 1) : 1;
   let mult = combo.mult + 0.5 * (niv - 1); const bonusMult = [];
   if (advActif('marquage') && pts.length) { const best = pts.reduce((a, b) => (b.v > a.v ? b : a)); best.v = Math.floor(best.v / 2); best.notes.push('marquée ÷2'); }
   if (att && advActif('lecture') && S.favori && combo.id === S.favori.id && combo.mult > 1) { mult -= 1; bonusMult.push('Lecture du jeu −1'); }
@@ -1286,12 +1318,16 @@ function possibilites() {
     COMBOS_ATT.filter(k => k.id !== 'simple').forEach(k => {
       const sel = [];
       const ok = Object.entries(k.req).every(([t, q]) => { const l = utiles.filter(c => c.t === t).slice(0, q); sel.push(...l); return l.length >= q; });
-      if (ok && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(k.mult + 0.5 * ((C.niveaux[k.id] || 1) - 1))}`, sel });
+      if (ok && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(multEffectif(k))}`, sel });
     });
   }
   if (!att) {
-    const g = utiles.find(c => c.t === 'gardien'), autres = utiles.filter(c => c.t !== 'gardien');
-    if (g && autres.length >= 3 && max >= 4) out.push({ type: 'combo', id: 'muraille', lib: `${COMBOS_DEF[0].nom} ×${fmt(COMBOS_DEF[0].mult)}`, sel: [g, ...autres.slice(0, 3)] });
+    COMBOS_DEF.filter(k => !k.repli).forEach(k => {
+      const sel = [];
+      const ok = Object.entries(k.req).every(([t, q]) => { const l = utiles.filter(c => c.t === t).slice(0, q); sel.push(...l); return l.length >= q; });
+      if (ok && k.autres) sel.push(...utiles.filter(c => !sel.includes(c)).slice(0, k.autres));
+      if (ok && comboRealise(k, compteTypes(sel), sel.length) && sel.length <= max) out.push({ type: 'combo', id: k.id, lib: `${k.nom} ×${fmt(multEffectif(k))}`, sel });
+    });
   }
   // couleurs : Trio ou Carton plein
   const parK = {}; utiles.forEach(c => { const k = couleurCarte(c); (parK[k] = parK[k] || []).push(c); });
@@ -1323,12 +1359,20 @@ function indice() {
       return { k, manque, deja };
     }).filter(o => o.deja && o.manque.length === 1 && nbActions(sel) + 1 <= max && main.some(c => c.t === o.manque[0]));
     if (proches.length) { const o = proches.sort((a, b) => b.k.mult - a.k.mult)[0], t = o.manque[0], fc = ['passe', 'frappe', 'course', 'tete'].includes(t), fk = ['contre', 'percee', 'unedeux'].includes(o.k.id); return `Encore ${fc ? 'une' : 'un'} ${TYPES[t].nom} et ça devient ${fk ? 'une' : 'un'} ${o.k.nom}`; }
-  } else if (r.combo && r.combo.id !== 'muraille') {
-    const g = r.valides.some(c => c.t === 'gardien'), nd = r.valides.filter(c => c.t !== 'gardien').length;
-    const besoinD = Math.max(0, 3 - nd), besoinG = g ? 0 : 1, besoin = besoinD + besoinG;
-    const dispoD = main.filter(c => c.t !== 'gardien').length, dispoG = main.some(c => c.t === 'gardien');
-    if (r.valides.length >= 2 && besoin <= 2 && nbActions(sel) + besoin <= max && dispoD >= besoinD && (!besoinG || dispoG))
-      return `${besoinG && besoinD ? 'Un Gardien et un défenseur de plus' : besoinG ? 'Un Gardien derrière' : besoinD === 2 ? 'Encore deux défenseurs' : 'Encore un défenseur'} : Muraille ×2`;
+  } else if (r.combo) {
+    // défense : la combinaison à une carte près (deux pour la Muraille), si ces cartes sont en main
+    const art = t => (t === 'interception' ? 'une' : 'un'), nomT = t => TYPES[t].nom;
+    const proches = COMBOS_DEF.filter(k => !k.repli && multEffectif(k) > multEffectif(r.combo)).map(k => {
+      const manque = Object.entries(k.req).flatMap(([t, q]) => Array(Math.max(0, q - (compte[t] || 0))).fill(t));
+      const enTrop = k.autres ? Math.max(0, k.autres - (r.valides.length - Object.entries(k.req).reduce((a, [t, q]) => a + Math.min(q, compte[t] || 0), 0))) : 0;
+      return { k, manque, enTrop };
+    }).filter(o => { const tot = o.manque.length + o.enTrop; return tot >= 1 && tot <= (o.k.autres ? 2 : 1) && nbActions(sel) + tot <= max && o.manque.every(t => main.some(c => c.t === t)) && main.filter(c => !o.manque.includes(c.t)).length >= o.enTrop; });
+    if (proches.length) {
+      const nb = o => o.manque.length + o.enTrop;
+      const o = proches.sort((a, b) => nb(a) - nb(b) || multEffectif(b.k) - multEffectif(a.k))[0], m = o.manque.map(t => `${art(t)} ${nomT(t)}`);
+      if (o.enTrop) m.push(o.enTrop === 1 ? 'un défenseur' : `${o.enTrop} défenseurs`);
+      return `Encore ${m.join(' et ')} : ${o.k.nom} ×${fmt(multEffectif(o.k))}`;
+    }
   }
   // jeu collectif : il manque une ligne (D, M ou A en bas de la carte)
   const lignes = new Set(r.valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l)), manqueL = ['DEF', 'MIL', 'ATT'].filter(l => !lignes.has(l));
@@ -1428,7 +1472,7 @@ const DILEMMES = [
     a: { lib: 'Vendre', eff: '+120 pièces, tu perds ta meilleure Frappe', f: () => { const f = C.cartes.filter(c => c.t === 'frappe').sort((x, y) => valeurCarte(y) - valeurCarte(x))[0]; if (f) C.cartes = C.cartes.filter(c => c.id !== f.id); C.pieces += 120; } },
     b: { lib: 'Le garder', eff: 'Ta meilleure Frappe gagne +1 niveau', f: () => { const f = C.cartes.filter(c => c.t === 'frappe' && c.niv < RARETES[c.r].max).sort((x, y) => valeurCarte(y) - valeurCarte(x))[0]; if (f) f.niv++; } } },
   { id: 'video', titre: 'Vidéo ou physique ?', txt: 'Dédé a préparé la salle vidéo. Le préparateur, lui, veut faire courir tout le monde.',
-    a: { lib: 'Séance vidéo', eff: '+1 niveau sur une combinaison au hasard', f: () => { const k = pick(COMBOS_ATT.filter(x => x.id !== 'simple')); C.niveaux[k.id] = (C.niveaux[k.id] || 1) + 1; } },
+    a: { lib: 'Séance vidéo', eff: '+1 niveau sur une combinaison au hasard', f: () => { const L = fichesOuvertes(); if (L.length) monterFiche(pick(L).id); else C.pieces += 60; } },
     b: { lib: 'Séance physique', eff: '+1 niveau sur 2 cartes de défense', f: () => melanger(C.cartes.filter(c => !TYPES[c.t].att && c.niv < RARETES[c.r].max)).slice(0, 2).forEach(c => c.niv++) } },
   { id: 'ultras', titre: 'Les ultras sont venus', txt: 'Ils veulent voir des joueurs qui mouillent le maillot.',
     a: { lib: 'Promettre du combat', eff: 'Nouvelle carte Tacle épique', f: () => C.cartes.push(nouvelleCarte('tacle', jiPourType('tacle'), 'epique')) },
@@ -2719,6 +2763,7 @@ function vestiaire() {
   const conseil = !ligue ? (m.comp === 'eur' ? `${m.nom}, ${m.tour.toLowerCase()} contre ${opp.nom}. Les grands clubs d'Europe ne font pas de cadeau. En cas d'égalité : tirs au but.` : `${m.nom}, ${m.tour.toLowerCase()}. ${C.divisions[opp.id] < C.div ? `${opp.nom} joue au-dessus de nous : un exploit, ça se prépare.` : `Sur le papier on est favoris. Méfiance quand même.`} En cas d'égalité : tirs au but.`)
     : derby ? `Le derby contre ${opp.nom}. Toute la ville ne parle que de ça. Ne me fais pas honte.`
     : C.journee === 0 ? (C.saison > 1 && C.formation.jeunes.length ? `Nouvelle saison. Passe voir le centre de formation, des gamins viennent d'arriver.` : `Premier match de la saison. Lis bien le style de l'adversaire avant de jouer.`)
+      : C.nouveautesV18 ? `Grosse nouveauté en défense : comme en attaque, chaque combinaison demande ses cartes. Muraille (Gardien + 3), Verrou (Marquage + Tacle + Interception), Récupération, Marquage serré, Sortie du gardien. Bloc n'est plus qu'un repli et n'a plus de fiche${C.nouveautesV18 > 1 ? ` : on t'a remboursé ${C.nouveautesV18} pièces` : ''}. Les fiches s'arrêtent au niveau 5 et coûtent plus cher à chaque niveau.`
       : C.nouveautesV17 ? `Bonne nouvelle pour les consignes : tu peux en ajouter une à ton action, en plus de tes cartes. Plus besoin de sacrifier un temps fort pour préparer le suivant.`
       : C.nouveautesV16 ? `Du nouveau, et ça va piquer. Après chaque temps fort, on ne pioche plus que 3 cartes : réfléchis avant de tout lâcher. Et au niveau Normal, le mur adverse est annoncé en fourchette. Si c'est trop dur, passe en Facile dans le menu, Réglages.`
       : C.nouveautesV10 ? `Du nouveau au club ! Chaque joueur a une couleur : 3 cartes de la même couleur font un Trio, 4 un Carton plein. Et je t'ai mis deux Consignes dans le paquet : Contre-pied et Pressing haut. Elles ne marquent rien, mais elles préparent le coup d'après.`
@@ -2750,7 +2795,7 @@ function vestiaire() {
     <h2 class="lil">Tes stars <small>${C.stars.length}/${MAX_STARS}</small></h2>
     <div class="stars-ligne">${Array.from({ length: MAX_STARS }, (_, i) => { const id = C.stars[i]; if (!id) return `<div class="star-slot vide">${img('etoile')}<small>libre</small></div>`; const s = STARS.find(x => x.id === id); return `<button class="star-slot r-${s.r}" data-s="${id}">${img(IC_STAR[id])}<small>${s.nom.replace(/^(Le |La |Les |L’)/, '')}</small></button>`; }).join('')}</div>
   </div>`);
-  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; sauver(); }
+  if (C.migre || C.nouveautesV10 || C.nouveautesV16 || C.nouveautesV17 || C.nouveautesV18) { C.migre = false; C.nouveautesV10 = false; C.nouveautesV16 = false; C.nouveautesV17 = false; C.nouveautesV18 = false; sauver(); }
   $('#bJouer').onclick = () => { Son.init(); Son.clic(); COOP ? lancerMatchCoop() : lancerMatch(); };
   brancherBandeauCoop();
   proposerFacile();
@@ -2802,7 +2847,7 @@ function effectif() {
   const cartes = C.cartes.map(c => ({ ...c, val: valeurCarte(c) }))
     .filter(c => FILTRE === 'tout' || (FILTRE === 'att' ? TYPES[c.t].att === true : FILTRE === 'cons' ? !!TYPES[c.t].consigne : TYPES[c.t].att === false))
     .sort((a, b) => ((TYPES[b.t].att === true) - (TYPES[a.t].att === true)) || ((TYPES[a.t].consigne ? 1 : 0) - (TYPES[b.t].consigne ? 1 : 0)) || a.t.localeCompare(b.t) || b.val - a.val);
-  const combos = COMBOS_ATT.filter(k => k.id !== 'simple').concat(COMBOS_DEF.slice(0, 2));
+  const combos = tousCombos().filter(ficheAmeliorable);
   vue(`<div class="page">${segs}
     <div class="filtres">${[['tout', 'Tout'], ['att', 'Attaque'], ['def', 'Défense'], ['cons', 'Consignes']].map(([k, n]) => `<button class="chip ${FILTRE === k ? 'on' : ''}" data-f="${k}">${n}</button>`).join('')}<span class="compte">${C.cartes.length} cartes</span></div>
     <div class="grille-cartes">${cartes.map(c => carteHTML(c)).join('')}</div>
@@ -2867,15 +2912,15 @@ function ficheCarte(id) {
 }
 
 // ---------- Boutique ----------
-const prixFiche = id => 60 + 20 * ((C.niveaux[id] || 1) - 1);
-const comboFavori = () => { const K = C.carnet && C.carnet.combos; if (!K) return null; const e = Object.entries(K).filter(([id]) => comboPar(id) && !['simple', 'intervention', 'cf'].includes(id)).sort((a, b) => b[1] - a[1])[0]; return e ? comboPar(e[0]) : null; };
+const prixFiche = id => prixNiveau(C.niveaux[id] || 1);
+const comboFavori = () => { const K = C.carnet && C.carnet.combos; if (!K) return null; const e = Object.entries(K).filter(([id]) => comboPar(id) && ficheAmeliorable(comboPar(id))).sort((a, b) => b[1] - a[1])[0]; return e ? comboPar(e[0]) : null; };
 function choisirFiche() {
-  const fav = comboFavori(), liste = tousCombos().filter(k => !['simple', 'intervention'].includes(k.id));
+  const fav = comboFavori(), liste = tousCombos().filter(ficheAmeliorable);
   const nbJ = id => (C.carnet && C.carnet.combos && C.carnet.combos[id]) || 0; liste.sort((a, b) => nbJ(b.id) - nbJ(a.id));
   modal(`<h1 class="lil">Fiche tactique</h1><p class="petit">Choisis la combinaison à faire progresser.${fav ? ` Ta plus jouée : <b>${fav.nom}</b>.` : ''}</p>
-    <div class="liste-fiches">${liste.map(k => { const n = C.niveaux[k.id] || 1, p = prixFiche(k.id); return `<button class="lcombo fiche-ch" data-f="${k.id}" ${C.pieces < p ? 'disabled' : ''}><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>niv. ${n} → ${n + 1} · joué ${nbJ(k.id)} fois</small></div><div class="lm"><span class="lil">${p}</span>${img('piece', 'mini-ic')}</div></button>`; }).join('')}</div>
+    <div class="liste-fiches">${liste.map(k => { const n = C.niveaux[k.id] || 1, p = prixFiche(k.id), maxi = n >= NIV_MAX; return `<button class="lcombo fiche-ch" data-f="${k.id}" ${maxi || C.pieces < p ? 'disabled' : ''}><div class="ics">${k.ics.map(x => img(x)).join('')}</div><div class="lt"><b>${k.nom}</b><small>${maxi ? `niveau max (${NIV_MAX})` : `niv. ${n} → ${n + 1}`} · joué ${nbJ(k.id)} fois</small></div><div class="lm">${maxi ? '' : `<span class="lil">${p}</span>${img('piece', 'mini-ic')}`}</div></button>`; }).join('')}</div>
     <div class="btns"><button class="btn sec" id="fNon">Annuler</button></div>`, () => {
-    document.querySelectorAll('.fiche-ch').forEach(bt => (bt.onclick = () => { const id = bt.dataset.f, p = prixFiche(id); if (C.pieces < p) return; C.pieces -= p; C.niveaux[id] = (C.niveaux[id] || 1) + 1; C.boutique.achete.fiche = true; Son.piece(); toast(`${comboPar(id).nom} niveau ${C.niveaux[id]}`); fermerModal(); maj(); }));
+    document.querySelectorAll('.fiche-ch').forEach(bt => (bt.onclick = () => { const id = bt.dataset.f, p = prixFiche(id); if (C.pieces < p || (C.niveaux[id] || 1) >= NIV_MAX) return; C.pieces -= p; monterFiche(id); C.boutique.achete.fiche = true; Son.piece(); toast(`${comboPar(id).nom} niveau ${C.niveaux[id]}`); fermerModal(); maj(); }));
     $('#fNon').onclick = fermerModal;
   });
 }

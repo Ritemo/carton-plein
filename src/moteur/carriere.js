@@ -44,8 +44,18 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
   // titres de division (champion de Ligue 3, de Ligue 2...) : désormais dans la vitrine
   if ((c.v || 1) < 8) (c.palmares || []).forEach(p => { if (p.rang === 1 && !c.trophees.some(t => t.k === 'titre' && t.s === p.s)) c.trophees.push({ s: p.s, k: 'titre', nom: `Champion de ${PAYS[p.pays || c.pays].divs[p.div]}` }); });
+  if ((c.v || 1) < 9) {
+    // nouvelles défenses : Bloc devient un repli sans fiche. On rembourse ce qui a été payé (anciens prix).
+    let rendu = 0; const ancienPrix = l => 60 + 20 * (l - 1);
+    Object.entries(c.niveaux || {}).forEach(([id, n]) => {
+      const k = comboPar(id), garde = !k || !ficheAmeliorable(k) ? 1 : Math.min(n, NIV_MAX);
+      for (let l = garde; l < n; l++) rendu += ancienPrix(l);
+      if (garde <= 1) delete c.niveaux[id]; else c.niveaux[id] = garde;
+    });
+    c.pieces += rendu; c.nouveautesV18 = rendu || true;
+  }
   C = av;
-  c.v = 8; return c;
+  c.v = 9; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
@@ -125,7 +135,7 @@ function simulerJournee() { // les autres matchs de la journée
 function nouvelleBoutique() {
   const libres = STARS.filter(s => !C.stars.includes(s.id));
   const st = libres.length ? pick(libres.filter(s => s.r !== 'epique' || C.div <= 2).length ? libres.filter(s => s.r !== 'epique' || C.div <= 2) : libres) : null;
-  const combo = pick(COMBOS_ATT.filter(k => k.id !== 'simple').concat(COMBOS_DEF.slice(0, 2)));
+  const combo = pick(fichesOuvertes().length ? fichesOuvertes() : COMBOS_ATT.filter(k => !k.repli));
   const r = hasard() < 0.5 ? 'rare' : C.div <= 2 ? 'epique' : 'rare';
   const t = pick(Object.keys(TYPES));
   C.boutique = { star: st ? st.id : null, fiche: combo.id, carte: { t, r, prix: r === 'rare' ? 70 : 120 }, achete: {} };
@@ -146,7 +156,7 @@ function genRecompenses(europe) {
   if (upg.length) { const c = pick(upg); out.push({ k: 'niveau', id: c.id }); }
   const libres = STARS.filter(s => !C.stars.includes(s.id) && (s.r !== 'epique' || C.div <= 2));
   if (libres.length && C.stars.length < MAX_STARS && hasard() < 0.6) out.push({ k: 'star', id: pick(libres).id });
-  else out.push({ k: 'fiche', id: pick(COMBOS_ATT.filter(x => x.id !== 'simple').concat(COMBOS_DEF.slice(0, 2))).id });
+  else if (fichesOuvertes().length) out.push({ k: 'fiche', id: pick(fichesOuvertes()).id });
   if (out.length < 3) out.push({ k: 'pieces', n: 40 });
   return out;
 }
@@ -154,7 +164,7 @@ function appliquerRecompense(o) {
   if (o.k === 'carte') C.cartes.push(nouvelleCarte(o.t, o.ji, o.r));
   if (o.k === 'niveau') { const c = C.cartes.find(x => x.id === o.id); if (c) c.niv++; }
   if (o.k === 'star' && C.stars.length < MAX_STARS) C.stars.push(o.id);
-  if (o.k === 'fiche') C.niveaux[o.id] = (C.niveaux[o.id] || 1) + 1;
+  if (o.k === 'fiche' && !monterFiche(o.id)) C.pieces += 60; // fiche au maximum : remplacée par des pièces
   if (o.k === 'pieces') C.pieces += o.n;
 }
 
