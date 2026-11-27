@@ -656,3 +656,14 @@ body.direct .jauge .repere{display:none}
 @keyframes cbLeve{0%{opacity:0;transform:translateY(60px) scale(.8)}60%{opacity:1;transform:translateY(-150px) scale(1.08)}100%{opacity:1;transform:translateY(-130px) scale(1)}}
 @media (prefers-reduced-motion: reduce){#celeb.trophee .cb-coupe{animation:none;opacity:1;transform:translateY(-130px)}}
 #celeb.trophee .cb-txt{font-size:36px;-webkit-text-stroke:4px #000;white-space:normal;width:330px;text-align:center;line-height:1.05;top:-30px}
+/* entraînement */
+.atelier-page{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.at-tete{display:flex;justify-content:space-between;align-items:center;font-size:22px}
+.at-tete #atScore{background:#ffd23f;color:#1c1240;border:3px solid #000;border-radius:12px;padding:2px 12px;min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
+.at-zone{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.at-svg{display:block;width:100%;height:auto;border:3px solid #000;border-radius:16px;box-shadow:0 4px 0 #000}
+.at-t{font:900 22px system-ui,sans-serif;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:3px}
+.at-cible{cursor:pointer}
+.choix-rgl.atelier{display:grid;grid-template-columns:28px 1fr;column-gap:8px;align-items:center}
+.choix-rgl.atelier small{grid-column:2}
+.coupe-ligne.entrainement{background:linear-gradient(#3fa7f5,#2f7de1)}

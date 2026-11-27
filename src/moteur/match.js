@@ -16,6 +16,7 @@ function nouveauMatch(m, auto, opts) {
   S.style = S.eq.ia.style;
   S.meteo = C.meteoProchaine || pick(Object.keys(METEOS));
   if (opts) { Object.assign(S, opts); if (opts.style) S.style = opts.style; if (opts.meteo) S.meteo = opts.meteo; }
+  if (!auto && !estAmical() && C.forme) { S.forme = C.forme; C.forme = 0; }
   piocher();
   preparerTF();
 }
@@ -162,6 +163,7 @@ function calcul(cartes) {
   if (att && S.type === 'eclair') { mult += 1; bonusMult.push('Éclair +1'); }
   if (att && S.type === 'cf' && valides.some(c => c.t === 'frappe')) { mult += 1; bonusMult.push('Tireur +1'); }
   let plus = 5 * (niv - 1);
+  if (S.forme && S.tf <= 1 && valides.length) { plus += S.forme; bonusMult.push(`Forme +${S.forme}`); }
   if (niv > 1) bonusMult.push(`Fiche niv. ${niv} +${fmt(0.5 * (niv - 1))}`);
   // jeu collectif : les trois lignes dans la même action
   const lignes = new Set(valides.map(c => C.effectif[c.ji] && C.effectif[c.ji].l));
