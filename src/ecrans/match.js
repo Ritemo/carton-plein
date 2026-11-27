@@ -156,6 +156,7 @@ function majCalcul() {
   if (p) p.textContent = S.anim.pts; if (m) m.textContent = fmt(S.anim.mult == null ? r.combo.mult : S.anim.mult);
   if (t) t.textContent = S.anim.total == null ? '?' : S.anim.total;
   majJauge(S.anim.total == null ? 0 : S.anim.total);
+  if (typeof majActionPlein === 'function') majActionPlein();
 }
 function choisirCarte(c) {
   if (S.phase !== 'choix') return;
@@ -187,7 +188,7 @@ async function jouer(force) {
     S.anim.pts += r.pts[i].v; Son.tick(i); gesteSuivant(SCENE);
     const el = document.querySelector(`#main .carte[data-id="${r.pts[i].c.id}"]`);
     if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + r.pts[i].v); }
-    majCalcul(); await sleep(360);
+    majCalcul(); await sleep(SCENE ? 420 * LENT : 360);
   }
   if (r.plus) { S.anim.pts += r.plus; flotterCentre('+' + r.plus + ' tactique'); majCalcul(); await sleep(300); }
   S.anim.mult = r.mult; Son.mult(); majCalcul();
@@ -196,11 +197,12 @@ async function jouer(force) {
   await sleep(320);
   await compter(r.total);
   let t;
-  if (S.comp === 'direct') { try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
+  if (S.comp === 'direct') { if (SCENE) SCENE.dire(0, 0, `${S.ami.pseudo} choisit ses cartes…`); try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
   else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
   finAction(SCENE, t);
-  await sleep(650);
+  await sleep(SCENE ? 520 * LENT + 300 : 650);
+  fermerActionPlein();
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
   await sleep(250);
   retirerJouees(S.sel);

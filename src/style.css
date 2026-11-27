@@ -667,3 +667,26 @@ body.direct .jauge .repere{display:none}
 .choix-rgl.atelier{display:grid;grid-template-columns:28px 1fr;column-gap:8px;align-items:center}
 .choix-rgl.atelier small{grid-column:2}
 .coupe-ligne.entrainement{background:linear-gradient(#3fa7f5,#2f7de1)}
+/* action en plein écran */
+#actionPlein{position:fixed;inset:0;z-index:55;background:radial-gradient(ellipse at 50% 30%,#2a1d6b,#120a33 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:max(14px,env(safe-area-inset-top)) 12px max(14px,env(safe-area-inset-bottom));opacity:0;transition:opacity 220ms cubic-bezier(.23,1,.32,1)}
+#actionPlein.on{opacity:1}
+#actionPlein .ap-haut{font-size:20px;color:#ffd84d;text-align:center}
+#actionPlein .ap-terrain{width:100%;max-width:560px}
+#actionPlein .terrain-action{max-height:none;border:3px solid #000;border-radius:16px;box-shadow:0 5px 0 #000}
+.ta-bande{fill:rgba(255,255,255,.04)}
+#actionPlein .ap-legende{min-height:30px;font-size:20px;text-align:center;color:#fff}
+#actionPlein .ap-calc{display:flex;align-items:baseline;gap:6px;font-size:30px;color:#fff;font-variant-numeric:tabular-nums}
+#actionPlein .ap-calc small{font-size:11px;opacity:.7;font-family:system-ui,sans-serif;margin-left:-2px}
+#actionPlein .ap-calc b{opacity:.6;font-size:22px}
+#actionPlein .ap-calc .tot{color:#ffd84d;font-size:40px}
+#actionPlein .ap-jauge{position:relative;width:100%;max-width:560px;height:18px;border-radius:9px;background:#0b0622;border:3px solid #000;overflow:visible}
+#actionPlein .ap-jauge i{position:absolute;inset:0;border-radius:6px;background:linear-gradient(90deg,#3fa7f5,#29c46a);transform-origin:left;transform:scaleX(0);transition:transform 160ms linear}
+#actionPlein .ap-rep{position:absolute;top:-5px;bottom:-5px;width:3px;background:#fff;border-radius:2px}
+#actionPlein .ap-rep.occ{background:#ffd23f}
+#actionPlein .ap-bande{position:absolute;top:-4px;bottom:-4px;background:repeating-linear-gradient(135deg,rgba(255,210,63,.6) 0 5px,rgba(255,210,63,.18) 5px 10px);border-left:2px solid #ffd23f;border-right:2px solid #ffd23f}
+#actionPlein .ap-cible{font-size:14px;opacity:.85}
+#actionPlein .ap-astuce{font-size:11px;opacity:.5}
+@media (prefers-reduced-motion: reduce){#actionPlein{transition:none}}
+#actionPlein .ap-terrain{max-width:330px;flex:0 1 auto}
+#actionPlein .terrain-action{max-height:58vh;width:auto;margin:0 auto}
+@media (min-aspect-ratio:1/1){#actionPlein .terrain-action{max-height:50vh}}
