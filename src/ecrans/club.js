@@ -24,6 +24,7 @@ const Son = {
   tick(i) { this.ton(440 * Math.pow(1.19, i), 0.1, 'square', 0.06); },
   mult() { this.ton(196, 0.25, 'sawtooth', 0.08); this.ton(392, 0.3, 'square', 0.06, 0.05); this.souffle(0.4, 1200, 0.25, 'bandpass'); },
   perdu() { this.ton(330, 0.12); this.ton(220, 0.25, 'square', 0.06, 0.1); },
+  touche() { this.ton(170, 0.07, 'sine', 0.22); this.souffle(0.03, 2200, 0.06); },
   frappe() { this.ton(140, 0.2, 'sine', 0.45); this.souffle(0.06, 1800, 0.2); },
   sifflet(long) { if (!this.ctx || !this.on) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), l = c.createOscillator(), lg = c.createGain(), g = c.createGain(); o.frequency.value = 2900; l.frequency.value = 28; lg.gain.value = 90; l.connect(lg).connect(o.frequency); const d = long ? 0.9 : 0.3; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.02); g.gain.setValueAtTime(0.08, t + d - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(c.destination); o.start(t); l.start(t); o.stop(t + d + 0.05); l.stop(t + d + 0.05); },
   but() { this.souffle(2.2, 900, 0.5, 'bandpass'); [523, 659, 784, 1047].forEach((f, i) => this.ton(f, 0.22, 'square', 0.07, 0.12 * i)); },

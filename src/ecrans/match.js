@@ -184,12 +184,16 @@ async function jouer(force) {
   S.phase = 'calcul'; S.anim = { r, pts: 0, mult: null, total: null };
   zoneAction();
   SCENE = REDUIT ? null : creerScene(r);
-  for (let i = 0; i < r.pts.length; i++) {
-    S.anim.pts += r.pts[i].v; Son.tick(i); gesteSuivant(SCENE);
-    const el = document.querySelector(`#main .carte[data-id="${r.pts[i].c.id}"]`);
-    if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + r.pts[i].v); }
-    majCalcul(); await sleep(SCENE ? 420 * LENT : 360);
-  }
+  const compterCarte = (p, i) => {
+    S.anim.pts += p.v; Son.tick(i);
+    const el = document.querySelector(`#main .carte[data-id="${p.c.id}"]`);
+    if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + p.v); }
+    majCalcul();
+  };
+  if (SCENE) {
+    // l'animation mène : les points et le son tombent au contact du ballon
+    for (let i = 0; i < SCENE.pts.length; i++) await gesteSuivant(SCENE, () => compterCarte(SCENE.pts[i], i));
+  } else for (let i = 0; i < r.pts.length; i++) { compterCarte(r.pts[i], i); await sleep(360); }
   if (r.plus) { S.anim.pts += r.plus; flotterCentre('+' + r.plus + ' tactique'); majCalcul(); await sleep(300); }
   S.anim.mult = r.mult; Son.mult(); majCalcul();
   const mb = document.querySelector('.boite-mult'); if (mb) { mb.classList.remove('slam'); void mb.offsetWidth; mb.classList.add('slam'); }
@@ -200,8 +204,8 @@ async function jouer(force) {
   if (S.comp === 'direct') { if (SCENE) SCENE.dire(0, 0, `${S.ami.pseudo} choisit ses cartes…`); try { t = await attendreDuel(r); } catch (e) { if (S) { toast(e.message === 'quitté' ? 'Match arrêté' : e.message); quitterDirect(); S = null; hub('amis'); } return; } }
   else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
-  finAction(SCENE, t);
-  await sleep(SCENE ? 520 * LENT + 300 : 650);
+  const sonFait = SCENE ? await finAction(SCENE, t) : false;
+  await sleep(SCENE ? 450 + 350 * LENT : 650);
   fermerActionPlein();
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
   await sleep(250);
@@ -213,10 +217,10 @@ async function jouer(force) {
   if (t === 'occasion' || t === 'tirAdverse') { S.phase = t; return zoneAction(); }
   S.marque = finTempsFort(t, r);
   S.phase = t;
-  if (t === 'but') { Son.but(); celebrer('but', nomButeur()); confettis(); }
-  if (t === 'butAdverse') { Son.perdu(); flash('But adverse'); }
-  if (t === 'stoppe') { Son.arret(); const g = r.valides.find(c => c.t === 'gardien'); celebrer(g ? 'arret' : 'stop', g ? C.effectif[g.ji].nom : null); }
-  if (t === 'rate') Son.perdu();
+  if (t === 'but') { if (!sonFait) Son.but(); celebrer('but', nomButeur()); confettis(); }
+  if (t === 'butAdverse') { if (!sonFait) Son.perdu(); flash('But adverse'); }
+  if (t === 'stoppe') { if (!sonFait) Son.arret(); const g = r.valides.find(c => c.t === 'gardien'); celebrer(g ? 'arret' : 'stop', g ? C.effectif[g.ji].nom : null); }
+  if (t === 'rate' && !sonFait) Son.perdu();
   rafraichirTableau(); zoneAction();
 }
 // ---------- Tirs : 6 zones, jauge de frappe, gardien qui plonge ----------

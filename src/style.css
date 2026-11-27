@@ -714,3 +714,5 @@ body.direct .jauge .repere{display:none}
 .tr-noeud.gris{opacity:.35}
 .tr-noeud:disabled{cursor:default}
 .tr-res{position:absolute;top:6px;right:8px;font-style:normal;font-size:13px;color:#ffd23f}
+.ta-pion.part{opacity:.65}
+#actionPlein.but .ap-legende{color:#ffd84d;transform:scale(1.25)}
