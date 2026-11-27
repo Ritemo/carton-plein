@@ -4114,8 +4114,9 @@ function jeton(sc, x, y, o) {
     const tag = el('g', { class: 'tk-tag', transform: 'translate(0,-14)' }, g), w = o.nom.length * 3.3 + 8;
     el('rect', { x: -w / 2, y: -5, width: w, height: 9, rx: 4.5, fill: '#120a33', stroke: '#ffd23f', 'stroke-width': 0.6 }, tag);
     const t = el('text', { y: 1.8, class: 'tk-nom' }, tag); t.textContent = o.nom;
+    var etiquette = (nom) => { const w2 = nom.length * 3.3 + 8; tag.firstChild.setAttribute('x', -w2 / 2); tag.firstChild.setAttribute('width', w2); t.textContent = nom; };
   }
-  const j = { g, saut, bob, nez, x, y, joueur: true }; poser(j, x, y); j.nez.setAttribute('transform', `rotate(${o.vers || -90})`); return j;
+  const j = { g, saut, bob, nez, x, y, joueur: true, etiquette }; poser(j, x, y); j.nez.setAttribute('transform', `rotate(${o.vers || -90})`); return j;
 }
 
 function creerScene(r) {
@@ -4177,9 +4178,12 @@ function creerScene(r) {
       const k = vus[j.p] = (vus[j.p] || 0) + 1; x = P[0]; y = P[1][(k - 1) % P[1].length];
       while (places.some(p => Math.abs(p[0] - x) < 9 && Math.abs(p[1] - y) < 9)) { y = y > 50 ? y - 12 : y + 12; x += 4; }
     }
-    places.push([x, y]);
     const gk = j.p === 'Gardien' || c.t === 'gardien';
+    // un seul gardien dans le but : si deux gardiens ont une carte, ils partagent le même jeton
+    if (gk && sc.jetonGardien) { sc.joueurs[c.ji] = sc.jetonGardien; return; }
+    places.push([x, y]);
     sc.joueurs[c.ji] = jeton(sc, x, y, { c1: gk ? gkMoi[0] : moiC1, c2: gk ? gkMoi[1] : moiC2, num: c.ji + 1, nom: nomCourt(c.ji), vers: att ? -90 : 90 });
+    if (gk) sc.jetonGardien = sc.joueurs[c.ji];
   });
   if (att) {
     const pris = new Set(Object.keys(sc.joueurs).map(ji => +ji + 1)), libres = [7, 11, 9, 10, 14, 17, 19, 21].filter(n => !pris.has(n));
@@ -4187,8 +4191,7 @@ function creerScene(r) {
     const ad = (x, y) => jeton(sc, x, y, { c1: euxC1, c2: euxC2, vers: 90 });
     sc.eux = { gk: jeton(sc, 291, 50, { c1: gkEux[0], c2: gkEux[1], vers: 90 }), def: [ad(252, 36), ad(254, 64), ad(234, 50)], mil: [ad(206, 22), ad(198, 78)] };
   } else {
-    const gk = pts.find(p => p.c.t === 'gardien');
-    sc.gardien = gk ? sc.joueurs[gk.c.ji] : jeton(sc, 8, 50, { c1: gkMoi[0], c2: gkMoi[1], num: 1, part: true, vers: 90 });
+    sc.gardien = sc.jetonGardien || jeton(sc, 8, 50, { c1: gkMoi[0], c2: gkMoi[1], num: 1, part: true, vers: 90 });
     const ad = (x, y) => jeton(sc, x, y, { c1: euxC1, c2: euxC2, vers: 90 });
     sc.eux = { porteur: ad(200, 50), appui: [ad(178, 24), ad(170, 76)], fond: [ad(238, 38), ad(242, 64)] };
   }
@@ -4248,7 +4251,7 @@ async function gesteSuivant(sc, impact) {
     const [sx, sy] = ecran(moi); fxAnneau(sc, sx, sy); fxPoints(sc, sx, sy, '+' + P.v);
     if (puce) { puce.classList.remove('en-cours'); puce.classList.add('fait'); }
   };
-  sc.dernier = c.ji; sc.actif(moi);
+  sc.dernier = c.ji; sc.actif(moi); if (moi.etiquette) moi.etiquette(nom);
   try {
     if (sc.att) await gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche);
     else await gesteDefense(sc, c, moi, nom, meme, touche);
