@@ -727,6 +727,10 @@ body.direct .jauge .repere{display:none}
 .tr-res{position:absolute;top:6px;right:8px;font-style:normal;font-size:13px;color:#ffd23f}
 .ta-pion.part{opacity:.65}
 #actionPlein.but .ap-legende{color:#ffd84d;transform:scale(1.25)}
+#actionPlein .ap-calc span{display:inline-block}
+.ap-tape{animation:apTape 200ms cubic-bezier(.23,1,.32,1)}
+@keyframes apTape{from{transform:scale(1.35);color:#ffd84d}to{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){.ap-tape{animation:none}}
 
 </style>
 </head>
@@ -2770,10 +2774,13 @@ let ONGLET = 'vestiaire';
 const Son = {
   ctx: null, on: true,
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; } },
-  bruit(d) { const c = this.ctx, b = c.createBuffer(1, Math.floor(c.sampleRate * d), c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < x.length; i++) x[i] = Math.random() * 2 - 1; const s = c.createBufferSource(); s.buffer = b; return s; },
+  // un seul tampon de bruit, préparé une fois : pas de calcul au moment où le son doit partir
+  bruit(d) { const c = this.ctx; if (!this.tampon) { const n = Math.floor(c.sampleRate * 2.5), b = c.createBuffer(1, n, c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1; this.tampon = b; } const s = c.createBufferSource(); s.buffer = this.tampon; return s; },
   tension() { }, // ambiance de foule retirée : bruitages seulement
   ton(f, d, type = 'square', v = 0.07, w = 0) { if (!this.ctx || !this.on) return; const c = this.ctx, t = c.currentTime + w, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(c.destination); o.start(t); o.stop(t + d + 0.05); },
-  souffle(d, f, v, type = 'lowpass') { if (!this.ctx || !this.on) return; const c = this.ctx, s = this.bruit(d), fi = c.createBiquadFilter(), g = c.createGain(); fi.type = type; fi.frequency.value = f; g.gain.setValueAtTime(v, c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d); s.connect(fi).connect(g).connect(c.destination); s.start(); },
+  souffle(d, f, v, type = 'lowpass') { if (!this.ctx || !this.on) return; const c = this.ctx, s = this.bruit(d), fi = c.createBiquadFilter(), g = c.createGain(); fi.type = type; fi.frequency.value = f; g.gain.setValueAtTime(v, c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d); s.connect(fi).connect(g).connect(c.destination); s.start(0, 0, Math.min(2.5, d)); },
+  // délai entre l'appel et le son entendu (haut-parleur, Bluetooth) : on joue le son un peu en avance sur l'image
+  latence() { const c = this.ctx; if (!c || !this.on) return 0; const l = (c.outputLatency || 0) + (c.baseLatency || 0); return Math.min(0.3, l > 0 ? l : 0.05); },
   clic() { this.souffle(0.05, 3000, 0.08, 'highpass'); },
   tick(i) { this.ton(440 * Math.pow(1.19, i), 0.1, 'square', 0.06); },
   mult() { this.ton(196, 0.25, 'sawtooth', 0.08); this.ton(392, 0.3, 'square', 0.06, 0.05); this.souffle(0.4, 1200, 0.25, 'bandpass'); },
@@ -3541,8 +3548,9 @@ async function jouer(force) {
   const compterCarte = (p, i) => {
     S.anim.pts += p.v; Son.tick(i);
     const el = document.querySelector(`#main .carte[data-id="${p.c.id}"]`);
-    if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + p.v); }
+    if (el && !SCENE) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + p.v); }
     majCalcul();
+    if (SCENE) frapperChiffre('#apPts');
   };
   if (SCENE) {
     // l'animation mène : les points et le son tombent au contact du ballon
@@ -3551,7 +3559,8 @@ async function jouer(force) {
   if (r.plus) { S.anim.pts += r.plus; flotterCentre('+' + r.plus + ' tactique'); majCalcul(); await sleep(300); }
   S.anim.mult = r.mult; Son.mult(); majCalcul();
   const mb = document.querySelector('.boite-mult'); if (mb) { mb.classList.remove('slam'); void mb.offsetWidth; mb.classList.add('slam'); }
-  secouer(); etoilesActives(r).forEach(allumer);
+  if (SCENE) frapperChiffre('#apMult'); else secouer();
+  etoilesActives(r).forEach(allumer);
   await sleep(320);
   await compter(r.total);
   let t;
@@ -3559,7 +3568,7 @@ async function jouer(force) {
   else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
   const sonFait = SCENE ? await finAction(SCENE, t) : false;
-  await sleep(SCENE ? 450 + 350 * LENT : 650);
+  await sleep(SCENE ? (sonFait && (t === 'but' || t === 'butAdverse') ? 500 : 450 + 350 * LENT) : 650);
   fermerActionPlein();
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
   await sleep(250);
@@ -3890,6 +3899,18 @@ function tween(d, step) {
 }
 function finirAnims() { ANIM.tw.forEach(tw => { tw.step(1); tw.res(); }); ANIM.tw.clear(); if (ANIM.raf) cancelAnimationFrame(ANIM.raf); ANIM.raf = 0; }
 const attendre = d => tween(d, () => { });
+// au contact : le son part maintenant, et l'image attend le temps que le son sorte du haut-parleur
+async function contact(fn) { fn(); const l = Son.latence() * 1000; if (l > 15) await sleep(l); }
+// un son à l'arrivée d'un mouvement de durée d (en temps d'animation), lancé un peu en avance
+// le son part quand le ballon arrive à l'œil (92 % du trajet), en avance de la latence du haut-parleur
+function allerSon(o, x, y, d, e, fn) {
+  e = e || doux; let uc = 1; for (let u = 0; u <= 1; u += 0.01) if (e(u) >= 0.92) { uc = u; break; }
+  const x0 = o.x, y0 = o.y; let fait = false;
+  return tween(d, u => {
+    const k = e(u); poser(o, x0 + (x - x0) * k, y0 + (y - y0) * k);
+    if (!fait && u >= uc - Son.latence() * 1000 / (d * LENT)) { fait = true; fn(); }
+  }).then(() => { if (!fait) fn(); });
+}
 const doux = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2); // joueurs : départ et arrivée en douceur
 const frappe = u => 1 - Math.pow(1 - u, 2.2); // ballon : part fort, ralentit
 
@@ -4019,7 +4040,7 @@ async function gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche) {
   // le ballon n'est pas à lui : un coéquipier lui donne d'abord (passe de relais)
   if (sc.porteur !== c.ji) {
     const de = sc.joueurs[sc.porteur] || sc.partenaires[0];
-    Son.touche(); await passerA(sc, de, moi, 300); sc.porteur = c.ji;
+    await contact(() => Son.touche()); await passerA(sc, de, moi, 300); sc.porteur = c.ji;
   }
   switch (c.t) {
     case 'passe': {
@@ -4027,24 +4048,24 @@ async function gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche) {
         sc.dire(0, 0, `${nom} · passe`);
         const rx = borne(lui.x + 10, 60, 250), ry = lui.y;
         aller(lui, rx, ry, 420); // le receveur se démarque pendant que le ballon arrive
-        await attendre(80); touche(); await passerA(sc, moi, { x: rx, y: ry }, 360);
+        await attendre(80); await contact(touche); await passerA(sc, moi, { x: rx, y: ry }, 360);
         sc.porteur = suivant.ji;
       } else {
         // une-deux avec un coéquipier : je donne, je file, il me la rend dans la course
         sc.dire(0, 0, `${nom} · ${meme ? 'une-deux' : 'passe et va'}`);
         const p = sc.partenaires.reduce((a, b) => (Math.abs(b.y - moi.y) > Math.abs(a.y - moi.y) ? b : a));
         aller(p, borne(moi.x + 28, 60, 245), p.y < 50 ? 26 : 74, 300);
-        touche(); await passerA(sc, moi, { x: borne(moi.x + 28, 60, 245), y: p.y < 50 ? 26 : 74 }, 300);
+        await contact(touche); await passerA(sc, moi, { x: borne(moi.x + 28, 60, 245), y: p.y < 50 ? 26 : 74 }, 300);
         const nx = borne(moi.x + 40, 60, 250);
         const course = aller(moi, nx, moi.y, 480);
-        await attendre(140); Son.touche(); await passerA(sc, p, { x: nx, y: moi.y }, 340); await course;
+        await attendre(140); await contact(() => Son.touche()); await passerA(sc, p, { x: nx, y: moi.y }, 340); await course;
       }
       break;
     }
     case 'course': {
       sc.dire(0, 0, `${nom} · ${meme ? 'longue course' : 'course'}`);
       const nx = borne(moi.x + (meme ? 42 : 32), 60, 250), ny = moi.y;
-      touche();
+      await contact(touche);
       await Promise.all([aller(moi, nx, ny, 620), aller(B, nx + 7, ny, 600, doux)]); // le ballon poussé devant
       await aller(B, nx + 4.5, ny, 120);
       break;
@@ -4056,7 +4077,7 @@ async function gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche) {
       await Promise.all([aller(d, fx + 8, fy, 360), aller(moi, fx - 8, moi.y + (fy - moi.y) * 0.6, 360), aller(B, fx - 3.5, moi.y + (fy - moi.y) * 0.6, 360)]);
       // feinte d'un côté, passage de l'autre
       const cote = fy > 50 ? -1 : 1, px = borne(fx + 16, 60, 250), py = borne(fy + cote * 16, 12, 88);
-      touche();
+      await contact(touche);
       await Promise.all([aller(moi, px, py, 420), aller(B, px + 4.5, py, 420), vaciller(d, 420)]);
       aller(d, d.x - 6, d.y, 300); // le défenseur reste sur place, battu
       break;
@@ -4069,7 +4090,7 @@ async function gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche) {
       const recv = lui && lui !== moi ? lui : sc.partenaires[aile < 50 ? 1 : 0];
       const cx = 262, cy = aile < 50 ? 56 : 44;
       aller(recv, cx - 4.5, cy, 520); aller(sc.eux.def[2], cx + 6, cy + (aile < 50 ? 8 : -8), 560);
-      await attendre(90); touche(); await lober(B, cx, cy, 520, 11);
+      await attendre(90); await contact(touche); await lober(B, cx, cy, 520, 11);
       if (lui && lui !== moi) sc.porteur = suivant.ji; else sc.porteur = null;
       break;
     }
@@ -4082,13 +4103,13 @@ async function gesteAttaque(sc, c, moi, nom, meme, suivant, lui, touche) {
         sc.dire(0, 0, `${nom} · ${c.t === 'tete' ? 'tête' : meme ? 'reprise' : 'frappe'}`);
         await Promise.all([aller(moi, tx - 4.5, ty, 380), aller(B, tx, ty, 380)]);
         if (c.t === 'tete') sauter(moi, 260);
-        touche();
+        await contact(touche);
         sc.tireur = { o: moi, t: c.t, ji: c.ji }; sc.porteur = c.ji;
       } else {
         // tir contré par un défenseur : le ballon revient au joueur suivant (ou au même : reprise)
         sc.dire(0, 0, `${nom} · ${c.t === 'tete' ? 'tête' : 'frappe'} contrée`);
-        const d = sc.eux.def[0]; aller(d, moi.x + 14, moi.y, 240);
-        await attendre(150); touche(); Son.frappe();
+        const d = sc.eux.def.reduce((a, b) => (Math.hypot(b.x - moi.x, b.y - moi.y) < Math.hypot(a.x - moi.x, a.y - moi.y) ? b : a)); await aller(d, moi.x + 14, moi.y, 300);
+        await contact(() => { touche(); Son.frappe(); });
         await aller(B, moi.x + 13, moi.y, 160, frappe); vaciller(d, 260);
         const vers = lui || moi; await passerA(sc, { x: moi.x + 13, y: moi.y }, vers, 300);
         sc.porteur = (suivant || c).ji;
@@ -4109,7 +4130,7 @@ async function gesteDefense(sc, c, moi, nom, meme, touche) {
       sc.dire(0, 0, `${nom} · marquage`);
       const cible = sc.eux.appui.reduce((a, b) => (Math.abs(b.x - nx) < Math.abs(a.x - nx) ? b : a));
       aller(cible, Math.max(70, cible.x - 22), cible.y, 520);
-      await attendre(160); touche();
+      await attendre(160); await contact(touche);
       await aller(moi, Math.max(64, cible.x - 28), cible.y + (cible.y < 50 ? 5 : -5), 460);
       await avance;
       break;
@@ -4119,16 +4140,15 @@ async function gesteDefense(sc, c, moi, nom, meme, touche) {
       await avance;
       const ap = sc.eux.appui[0], mx = (P.x + ap.x) / 2, my = (P.y + ap.y) / 2;
       aller(moi, mx, my, 340);
-      await attendre(140); Son.touche();
-      await aller(B, mx + 3, my, 260, frappe); touche(); // passe coupée
+      await attendre(140); await contact(() => Son.touche());
+      await allerSon(B, mx + 3, my, 260, frappe, touche); // passe coupée
       await aller(B, pied(sc, P).x, P.y, 320, frappe); // le ballon repart vers leur porteur, plus lent
       break;
     }
     case 'tacle': {
       sc.dire(0, 0, `${nom} · tacle`);
       await avance;
-      await aller(moi, P.x - 5, P.y + 4, 300);
-      touche();
+      await allerSon(moi, P.x - 5, P.y + 4, 300, doux, touche);
       await Promise.all([vaciller(P, 360), aller(B, P.x - 2, P.y - 8, 220, frappe)]);
       await aller(B, pied(sc, P).x, P.y, 260); // il récupère de justesse
       aller(moi, moi.x - 6, moi.y + 4, 260);
@@ -4138,7 +4158,7 @@ async function gesteDefense(sc, c, moi, nom, meme, touche) {
       sc.dire(0, 0, `${nom} · ${meme ? 'double parade' : 'parade'}`);
       await avance;
       await aller(moi, 14, borne(P.y, 44, 56), 300); // il se place face au tireur
-      touche(); await sauter(moi, 280);
+      await contact(touche); await sauter(moi, 280);
       break;
     }
     default: touche(); await avance;
@@ -4158,24 +4178,24 @@ async function finAction(sc, issue) {
     if (!t) {
       t = sc.joueurs[sc.buteur] || sc.joueurs[sc.porteur] || Object.values(sc.joueurs)[0];
       const tx = borne(Math.max(t.x, 236), 230, 246), ty = borne(t.y, 36, 64);
-      await aller(t, tx - 4.5, ty, 300); Son.touche(); await aller(B, tx, ty, 260, frappe);
+      await aller(t, tx - 4.5, ty, 300); await contact(() => Son.touche()); await aller(B, tx, ty, 260, frappe);
     }
     sc.allumer(t, true);
     const gk = sc.eux.gk, haut = t.y < 50;
     const vy = issue === 'but' ? (haut ? 56 : 44) : borne(t.y, 44, 56); // il vise le côté opposé
-    Son.frappe();
+    await contact(() => Son.frappe());
     if (issue === 'but') {
       sc.dire(0, 0, 'Frappe…');
       aller(gk, 289, haut ? 42 : 58, 300); // plongeon du mauvais côté
-      await aller(B, 297, vy, 300, frappe);
-      Son.but(); sc.dire(0, 0, 'BUT !'); sc.ov.classList.add('but');
+      await allerSon(B, 297, vy, 300, frappe, () => Son.but());
+      sc.dire(0, 0, 'BUT !'); sc.ov.classList.add('but');
       await aller(B, 299, vy + (vy > 50 ? 1 : -1), 160);
       return true;
     }
     sc.dire(0, 0, 'Frappe…');
     const parade = aller(gk, 287, vy, 260);
-    await aller(B, 285, vy, 280, frappe); await parade;
-    Son.perdu(); sc.dire(0, 0, 'Arrêté par le gardien');
+    await allerSon(B, 285, vy, 280, frappe, () => Son.perdu()); await parade;
+    sc.dire(0, 0, 'Arrêté par le gardien');
     await aller(B, 289, vy, 120);
     return true;
   }
@@ -4186,15 +4206,15 @@ async function finAction(sc, issue) {
   if (issue === 'stoppe') {
     const gk = sc.pts.some(p => p.c.t === 'gardien') && sc.pts[sc.pts.length - 1].c.t === 'gardien';
     if (gk) {
-      await approche(); sc.allumer(G, true); sc.dire(0, 0, 'Ils tirent…'); Son.frappe();
+      await approche(); sc.allumer(G, true); sc.dire(0, 0, 'Ils tirent…'); await contact(() => Son.frappe());
       const vy = borne(P.y, 44, 56); aller(G, 12, vy, 220);
-      await aller(B, 16, vy, 300, frappe); Son.arret(); sc.dire(0, 0, 'Arrêt !'); sauter(G, 260);
+      await allerSon(B, 16, vy, 300, frappe, () => Son.arret()); sc.dire(0, 0, 'Arrêt !'); sauter(G, 260);
       return true;
     }
     // le dernier défenseur qui a joué récupère le ballon et relance
     const d = sc.joueurs[sc.pts[sc.pts.length - 1].c.ji]; sc.allumer(d, true);
-    await aller(d, P.x - 5, P.y + 3, 260);
-    Son.arret(); sc.dire(0, 0, 'Ballon récupéré !');
+    await allerSon(d, P.x - 5, P.y + 3, 260, doux, () => Son.arret());
+    sc.dire(0, 0, 'Ballon récupéré !');
     await Promise.all([vaciller(P, 300), aller(B, d.x + 4.5, d.y, 200, frappe)]);
     await Promise.all([aller(d, d.x + 30, d.y, 420), aller(B, d.x + 34.5, d.y, 420)]);
     return true;
@@ -4205,14 +4225,16 @@ async function finAction(sc, issue) {
     return false;
   }
   if (issue === 'butAdverse') {
-    await approche(); sc.dire(0, 0, 'Ils tirent…'); Son.frappe();
+    await approche(); sc.dire(0, 0, 'Ils tirent…'); await contact(() => Son.frappe());
     const vy = P.y < 50 ? 56 : 44; aller(G, 12, P.y < 50 ? 42 : 58, 260);
-    await aller(B, 3, vy, 320, frappe); Son.perdu(); sc.dire(0, 0, 'But adverse');
+    await allerSon(B, 3, vy, 320, frappe, () => Son.perdu()); sc.dire(0, 0, 'But adverse');
     return true;
   }
   return false;
 }
 
+// petit coup sur un chiffre du calcul, au moment exact du son
+function frapperChiffre(id) { const e = SCENE && SCENE.ov && SCENE.ov.querySelector(id); if (!e) return; e.classList.remove('ap-tape'); void e.offsetWidth; e.classList.add('ap-tape'); }
 // le calcul et la jauge en bas de l'écran d'action
 function majActionPlein() {
   if (!SCENE || !SCENE.ov || !S || !S.anim) return;

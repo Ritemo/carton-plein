@@ -16,10 +16,13 @@ let ONGLET = 'vestiaire';
 const Son = {
   ctx: null, on: true,
   init() { if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; } try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ctx = null; } },
-  bruit(d) { const c = this.ctx, b = c.createBuffer(1, Math.floor(c.sampleRate * d), c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < x.length; i++) x[i] = Math.random() * 2 - 1; const s = c.createBufferSource(); s.buffer = b; return s; },
+  // un seul tampon de bruit, préparé une fois : pas de calcul au moment où le son doit partir
+  bruit(d) { const c = this.ctx; if (!this.tampon) { const n = Math.floor(c.sampleRate * 2.5), b = c.createBuffer(1, n, c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1; this.tampon = b; } const s = c.createBufferSource(); s.buffer = this.tampon; return s; },
   tension() { }, // ambiance de foule retirée : bruitages seulement
   ton(f, d, type = 'square', v = 0.07, w = 0) { if (!this.ctx || !this.on) return; const c = this.ctx, t = c.currentTime + w, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(c.destination); o.start(t); o.stop(t + d + 0.05); },
-  souffle(d, f, v, type = 'lowpass') { if (!this.ctx || !this.on) return; const c = this.ctx, s = this.bruit(d), fi = c.createBiquadFilter(), g = c.createGain(); fi.type = type; fi.frequency.value = f; g.gain.setValueAtTime(v, c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d); s.connect(fi).connect(g).connect(c.destination); s.start(); },
+  souffle(d, f, v, type = 'lowpass') { if (!this.ctx || !this.on) return; const c = this.ctx, s = this.bruit(d), fi = c.createBiquadFilter(), g = c.createGain(); fi.type = type; fi.frequency.value = f; g.gain.setValueAtTime(v, c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d); s.connect(fi).connect(g).connect(c.destination); s.start(0, 0, Math.min(2.5, d)); },
+  // délai entre l'appel et le son entendu (haut-parleur, Bluetooth) : on joue le son un peu en avance sur l'image
+  latence() { const c = this.ctx; if (!c || !this.on) return 0; const l = (c.outputLatency || 0) + (c.baseLatency || 0); return Math.min(0.3, l > 0 ? l : 0.05); },
   clic() { this.souffle(0.05, 3000, 0.08, 'highpass'); },
   tick(i) { this.ton(440 * Math.pow(1.19, i), 0.1, 'square', 0.06); },
   mult() { this.ton(196, 0.25, 'sawtooth', 0.08); this.ton(392, 0.3, 'square', 0.06, 0.05); this.souffle(0.4, 1200, 0.25, 'bandpass'); },

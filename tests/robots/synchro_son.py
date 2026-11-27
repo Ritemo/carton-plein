@@ -1,0 +1,21 @@
+from playwright.sync_api import sync_playwright
+import pathlib,sys; F=pathlib.Path(__file__).resolve().parents[2].joinpath('docs','index.html').as_uri()
+types=sys.argv[1].split(','); att=sys.argv[2]=='att'; issue=sys.argv[3]; tag=sys.argv[4]
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':390,'height':844},device_scale_factor=1)
+    errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
+    pg.goto(F); pg.wait_for_timeout(600); pg.evaluate("()=>{localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({code:'ROBOTANI',pseudo:'',niveauChoisi:true}));localStorage.setItem('carton-plein-cloud','')}"); pg.click('#bNew'); pg.wait_for_timeout(300); pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
+    for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
+    pg.click('#bJouer'); pg.wait_for_timeout(300); pg.click('#mGo'); pg.wait_for_timeout(500)
+    js=f"""()=>{{ S.tf={0 if att else 1}; S.type='normal'; S.phase='choix'; S.sel=[]; preparerTF();
+      const T={types!r}; S.main=T.map((t,i)=>({{...nouvelleCarte(t, jiPourType(t), 'commune'), id:9000+i}})).map(c=>({{...c,val:valeurCarte(c)}}));
+      S.main.forEach(c=>S.sel.push(c)); issue=()=>'{issue}'; jouer(true); }}"""
+    pg.evaluate("()=>{window.LOG=[];Son.init();['tick','touche','frappe','but','perdu','arret','mult'].forEach(k=>{const f=Son[k].bind(Son);Son[k]=(...a)=>{const b=SCENE&&SCENE.ballon;LOG.push([k,Math.round(performance.now()),b?Math.round(b.x):null]);return f(...a)}});setInterval(()=>{const b=SCENE&&SCENE.ballon; if(b) LOG.push(['b',Math.round(performance.now()),Math.round(b.x),Math.round(b.y)])},40)}")
+    pg.evaluate(js)
+    t0=0
+    import time; t0=time.time()
+    for k in range(80):
+        pg.wait_for_timeout(250); 
+        if pg.evaluate('S.phase')!='calcul': print('durée', round(time.time()-t0,1)); break
+    L=pg.evaluate('LOG'); print([x for x in L if x[0]!='b']); print([x for x in L if x[0]=='b' and x[2]>=280][:6])
+    b.close()

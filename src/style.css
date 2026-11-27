@@ -716,3 +716,7 @@ body.direct .jauge .repere{display:none}
 .tr-res{position:absolute;top:6px;right:8px;font-style:normal;font-size:13px;color:#ffd23f}
 .ta-pion.part{opacity:.65}
 #actionPlein.but .ap-legende{color:#ffd84d;transform:scale(1.25)}
+#actionPlein .ap-calc span{display:inline-block}
+.ap-tape{animation:apTape 200ms cubic-bezier(.23,1,.32,1)}
+@keyframes apTape{from{transform:scale(1.35);color:#ffd84d}to{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){.ap-tape{animation:none}}

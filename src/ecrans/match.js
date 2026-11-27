@@ -187,8 +187,9 @@ async function jouer(force) {
   const compterCarte = (p, i) => {
     S.anim.pts += p.v; Son.tick(i);
     const el = document.querySelector(`#main .carte[data-id="${p.c.id}"]`);
-    if (el) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + p.v); }
+    if (el && !SCENE) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); flotter(el, '+' + p.v); }
     majCalcul();
+    if (SCENE) frapperChiffre('#apPts');
   };
   if (SCENE) {
     // l'animation mène : les points et le son tombent au contact du ballon
@@ -197,7 +198,8 @@ async function jouer(force) {
   if (r.plus) { S.anim.pts += r.plus; flotterCentre('+' + r.plus + ' tactique'); majCalcul(); await sleep(300); }
   S.anim.mult = r.mult; Son.mult(); majCalcul();
   const mb = document.querySelector('.boite-mult'); if (mb) { mb.classList.remove('slam'); void mb.offsetWidth; mb.classList.add('slam'); }
-  secouer(); etoilesActives(r).forEach(allumer);
+  if (SCENE) frapperChiffre('#apMult'); else secouer();
+  etoilesActives(r).forEach(allumer);
   await sleep(320);
   await compter(r.total);
   let t;
@@ -205,7 +207,7 @@ async function jouer(force) {
   else t = issue(r);
   if (t === 'but' || t === 'stoppe') { const tt = document.querySelector('.total'); if (tt) tt.classList.add('enfeu'); }
   const sonFait = SCENE ? await finAction(SCENE, t) : false;
-  await sleep(SCENE ? 450 + 350 * LENT : 650);
+  await sleep(SCENE ? (sonFait && (t === 'but' || t === 'butAdverse') ? 500 : 450 + 350 * LENT) : 650);
   fermerActionPlein();
   document.querySelectorAll('#main .carte.sel').forEach(el => el.classList.add('part'));
   await sleep(250);
