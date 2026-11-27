@@ -155,7 +155,8 @@ function majCalcul() {
   const r = S.anim.r, p = document.querySelector('.boite-pts .n'), m = document.querySelector('.boite-mult .n'), t = document.querySelector('.total .n');
   if (p) p.textContent = S.anim.pts; if (m) m.textContent = fmt(S.anim.mult == null ? r.combo.mult : S.anim.mult);
   if (t) t.textContent = S.anim.total == null ? '?' : S.anim.total;
-  majJauge(S.anim.total == null ? 0 : S.anim.total);
+  // la jauge monte à chaque carte (points × combo du moment), puis se cale sur le total final
+  majJauge(S.anim.total == null ? Math.round(S.anim.pts * (S.anim.mult == null ? r.combo.mult : S.anim.mult)) : S.anim.total);
   if (typeof majActionPlein === 'function') majActionPlein();
 }
 function choisirCarte(c) {
@@ -370,8 +371,9 @@ function allumer(id) { const el = document.querySelector(`.star[data-mot="${id}"
 function compter(cible) {
   return new Promise(res => {
     if (REDUIT) { S.anim.total = cible; majCalcul(); return res(); }
-    const t0 = performance.now(), d = 650;
-    const pas = t => { const k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); S.anim.total = Math.round(cible * e); majCalcul(); if (k < 1) requestAnimationFrame(pas); else res(); };
+    // on repart de l'estimation déjà affichée par la jauge, pour qu'elle ne retombe jamais à zéro
+    const t0 = performance.now(), d = 650, dep = Math.min(cible, Math.round(S.anim.pts * (S.anim.mult == null ? 1 : S.anim.mult)));
+    const pas = t => { const k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); S.anim.total = Math.round(dep + (cible - dep) * e); majCalcul(); if (k < 1) requestAnimationFrame(pas); else res(); };
     requestAnimationFrame(pas);
   });
 }

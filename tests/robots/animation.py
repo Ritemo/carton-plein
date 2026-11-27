@@ -7,7 +7,8 @@ with sync_playwright() as p:
     pg.goto(F); pg.wait_for_timeout(600); pg.evaluate("()=>{localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({code:'ROBOTANI',pseudo:'',niveauChoisi:true}));localStorage.setItem('carton-plein-cloud','')}"); pg.click('#bNew'); pg.wait_for_timeout(300); pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
     for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
     pg.click('#bJouer'); pg.wait_for_timeout(300); pg.click('#mGo'); pg.wait_for_timeout(500)
-    js=f"""()=>{{ S.tf={0 if att else 1}; S.type='normal'; S.phase='choix'; S.sel=[]; preparerTF();
+    sm=sys.argv[5] if len(sys.argv)>5 else ''
+    js=f"""()=>{{ const sys_meteo='{sm}'; S.tf={0 if att else 1}; S.type='normal'; S.meteo=(sys_meteo||S.meteo); S.phase='choix'; S.sel=[]; preparerTF();
       const T={types!r}; S.main=T.map((t,i)=>({{...nouvelleCarte(t, jiPourType(t), 'commune'), id:9000+i}})).map(c=>({{...c,val:valeurCarte(c)}}));
       S.main.forEach(c=>S.sel.push(c)); issue=()=>'{issue}'; jouer(true); }}"""
     pg.evaluate(js)
