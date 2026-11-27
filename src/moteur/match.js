@@ -139,6 +139,7 @@ function valeurEnMatch(c, att, n) {
     if (advActif('blocbas') && c.t === 'frappe') { v += 3; notes.push('bloc bas +3'); }
     if (advActif('appels') && c.t === 'marquage') { v = 0; notes.push('appels'); }
     if (advActif('lointaine') && c.t === 'gardien') { v *= 2; notes.push('frappe de loin ×2'); }
+    const pel = S.dom && !S.tuto && !estAmical() ? niveauInfra('pelouse') : 0; if (pel && v > 0) { v += pel; notes.push(`pelouse +${pel}`); }
     return { c, v, notes };
 }
 function calcul(cartes) {

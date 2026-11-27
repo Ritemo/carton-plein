@@ -44,6 +44,7 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
   // titres de division (champion de Ligue 3, de Ligue 2...) : désormais dans la vitrine
   if ((c.v || 1) < 8) (c.palmares || []).forEach(p => { if (p.rang === 1 && !c.trophees.some(t => t.k === 'titre' && t.s === p.s)) c.trophees.push({ s: p.s, k: 'titre', nom: `Champion de ${PAYS[p.pays || c.pays].divs[p.div]}` }); });
+  if ((c.v || 1) < 10) (c.effectif || []).forEach((j, i) => initJoueur(j, i));
   if ((c.v || 1) < 9) {
     // nouvelles défenses : Bloc devient un repli sans fiche. On rembourse ce qui a été payé (anciens prix).
     let rendu = 0; const ancienPrix = l => 60 + 20 * (l - 1);
@@ -55,14 +56,14 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
     c.pieces += rendu; c.nouveautesV18 = rendu || true;
   }
   C = av;
-  c.v = 9; return c;
+  c.v = 10; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
 function valeurCarte(c) {
   if (estConsigne(c.t)) return 0;
   const j = C.effectif[c.ji], R = RARETES[c.r];
-  return TYPES[c.t].base + (j ? j.note : 0) + R.bonus + 2 * (c.niv - 1) + (c.sp && SPECIAUX[c.t].plus ? SPECIAUX[c.t].plus : 0);
+  return TYPES[c.t].base + (j ? j.note + (estCadre(j) ? 1 : 0) : 0) + R.bonus + 2 * (c.niv - 1) + (c.sp && SPECIAUX[c.t].plus ? SPECIAUX[c.t].plus : 0);
 }
 function nouvelleCarte(t, ji, r) {
   const c = { id: C.nid++, t, ji, r: r || 'commune', niv: 1 };
@@ -73,6 +74,7 @@ function nouvelleCarriere(clubId) {
   const pays = clubPar(clubId).pays;
   C = { v: 2, pays, club: clubId, saison: 1, div: 3, journee: 0, nid: 0, pieces: 40, stars: ['capitaine'], niveaux: {}, effectif: [], cartes: [], journal: [], palmares: [], trophees: [], vus: {}, rival: null, boutique: null, divisions: {}, coupes: {}, qualifEurope: null };
   GABARIT.forEach(g => C.effectif.push({ nom: nomJoueur(), p: g.p, l: g.l, k: g.k, note: rnd(3), buts: 0, matchs: 0 }));
+  C.effectif.forEach((j, i) => initJoueur(j, i));
   GABARIT.forEach((g, ji) => g.c.forEach(t => C.cartes.push(nouvelleCarte(t, ji, estConsigne(t) ? 'rare' : 'commune'))));
   // deux cartes rares pour démarrer
   melanger(C.cartes.filter(c => TYPES[c.t].att)).slice(0, 2).forEach(c => (c.r = 'rare'));
@@ -214,9 +216,11 @@ function bilanMatch(tab) {
   if (S.stats.cartons) ajoute(avancerObjectif('cartons', S.stats.cartons));
   C.serie = gp >= gc ? (C.serie || 0) + 1 : 0; ajoute(avancerObjectif('serie', C.serie, true));
   if (comp === 'nat' && C.coupes.nat && (C.coupes.nat.tour >= 2 || C.coupes.nat.gagne)) ajoute(avancerObjectif('coupe', 1));
+  const recettes = recettesMatch(S.dom); gain += recettes;
   C.pieces += gain;
   S.buteurs.forEach(ji => C.effectif[ji] && C.effectif[ji].buts++);
   C.effectif.forEach(j => j.matchs++);
+  const progres = progresserJoueurs();
   const une = titreJournal(gp, gc, coupe, tab);
   const sc = `${clubPar(C.club).court} ${gp} - ${gc} ${clubPar(opp).court}` + (tab ? ` (t.a.b. ${tab.p}-${tab.ia})` : '');
   C.journal.unshift({ rival: rivalTxt, s: C.saison, j: C.journee + 1, div: C.div, pays: C.pays, comp: coupe ? `${coupe.nom} · ${coupe.tourJoue}` : null, txt: une, score: sc, opp });
@@ -228,7 +232,7 @@ function bilanMatch(tab) {
   C.meteoProchaine = pick(Object.keys(METEOS));
   nouvelleBoutique();
   sauver();
-  return { gain, une, recompenses, coupe, defi: D, defiOk, objFaits };
+  return { gain, une, recompenses, coupe, defi: D, defiOk, objFaits, progres, recettes };
 }
 function titreJournal(gp, gc, coupe, tab) {
   const moi = clubPar(C.club).nom, eux = clubPar(S.opp).nom;
@@ -257,6 +261,7 @@ function finSaison() {
   const objRang = avancerObjectif('rang', rang <= ((C.objectifs || []).find(o => o.id === 'rang') || { cible: 0 }).cible ? 99 : 0, true);
   const objectifsSaison = (C.objectifs || []).map(o => ({ txt: OBJ_SAISON[o.id].txt(o), fait: o.fait, prime: OBJ_SAISON[o.id].prime }));
   C.palmares.push({ s: C.saison, div: C.div, pays: C.pays, club: C.club, rang, nb, issue: issueS, coupes: coupesSaison });
+  const retraites = vieillir();
   if (rang === 1) C.trophees.push({ s: C.saison, k: 'titre', nom: `Champion de ${nomDiv(C.div)}` });
   // montées et descentes dans tout le pays
   const bruit = {}; CLUBS.forEach(cl => { if (cl.pays === C.pays) bruit[cl.id] = cl.force + hasard() * 0.25; });
@@ -287,7 +292,7 @@ function finSaison() {
   nouvelleSaison();
   const nouveaux = arriveeJeunes();
   sauver();
-  return { objectifsSaison, rang, nb, issue: issueS, avant, apres: C.div, qualif: C.qualifEurope || (C.coupes.eur && C.coupes.eur.k), nouveaux, offres: C.offres, coupes: coupesSaison };
+  return { retraites, objectifsSaison, rang, nb, issue: issueS, avant, apres: C.div, qualif: C.qualifEurope || (C.coupes.eur && C.coupes.eur.k), nouveaux, offres: C.offres, coupes: coupesSaison };
 }
 function accepterOffre(id) {
   const o = (C.offres || []).find(x => x.id === id); if (!o) return;

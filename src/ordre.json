@@ -9,6 +9,8 @@
     "monde/competitions.js",
     "moteur/objectifs.js",
     "moteur/tirs.js",
+    "moteur/installations.js",
+    "moteur/vie.js",
     "moteur/carnet.js",
     "moteur/modes.js",
     "ecrans/tuto.js",

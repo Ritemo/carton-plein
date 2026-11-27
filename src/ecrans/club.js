@@ -71,6 +71,17 @@ function celebrer(type, nom) {
   setTimeout(() => d.classList.add('sortie'), 1900);
   setTimeout(() => d.remove(), 2300);
 }
+// trophée soulevé : coupe gagnée, titre, montée
+function souleverTrophee(titre, sous) {
+  const ancien = $('#celeb'); if (ancien) ancien.remove();
+  const cl = clubPar(C.club), d = document.createElement('div');
+  d.id = 'celeb'; d.className = 'trophee';
+  d.style.setProperty('--cb1', cl.c1 || '#ffd23f'); d.style.setProperty('--cb2', '#ffd23f');
+  d.innerHTML = `<div class="cb-fond"></div><div class="cb-burst"></div><div class="cb-scene"><img class="cb-coupe" src="${IMG.trophee}" alt=""><img class="cb-bras g" src="${IMG.bras || IMG.poignee}" alt=""><img class="cb-bras d" src="${IMG.bras || IMG.poignee}" alt=""><div class="cb-txt lil">${titre}</div>${sous ? `<div class="cb-nom">${sous}</div>` : ''}</div>`;
+  document.body.appendChild(d); Son.jingle(); confettis();
+  setTimeout(() => d.classList.add('sortie'), 2900);
+  setTimeout(() => d.remove(), 3300);
+}
 const nomGardien = () => { const o = effectifActif().find(o => o.j.p === 'Gardien'); return o ? o.j.nom : null; };
 const nomButeur = () => S.buteurs.length ? C.effectif[S.buteurs[S.buteurs.length - 1]].nom : null;
 function flash(t) { const f = $('#flash'), s = f.querySelector('span'); s.textContent = t; f.style.display = 'flex'; s.style.animation = 'none'; void s.offsetWidth; s.style.animation = ''; setTimeout(() => (f.style.display = 'none'), 1500); }
@@ -234,7 +245,7 @@ function hub(onglet) {
   $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button>${COOP ? '<button class="btn sec" id="mSolo">Revenir à ma carrière solo</button>' : '<button class="btn sec" id="mCoop">Carrière coop</button><button class="btn sec" id="mNew">Recommencer ma carrière</button>'}<button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; on('mSolo', () => { fermerModal(); quitterCoop(); C ? hub('vestiaire') : accueil(); }); on('mCoop', () => { fermerModal(); ecranCoop(); }); if ($('#mNew')) $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
-  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
+  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'chantier', 'Club'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
   $('#nav').innerHTML = tabs.map(([id, ic, nom]) => `<button class="onglet ${id === ONGLET ? 'on' : ''}" data-o="${id}">${img(ic)}<span>${nom}</span>${id === 'formation' && pret ? '<i class="pastille-notif"></i>' : ''}</button>`).join('');
   $('#nav').querySelectorAll('.onglet').forEach(b => (b.onclick = () => { Son.clic(); hub(b.dataset.o); }));
   ({ vestiaire, effectif, formation, boutique, competitions, amis })[ONGLET]();
@@ -361,8 +372,8 @@ function joueurs(segs) {
   const ordre = { G: 0, DEF: 1, MIL: 2, ATT: 3 };
   liste.sort((a, b) => (ordre[a.j.l] ?? 2) - (ordre[b.j.l] ?? 2));
   vue(`<div class="page">${segs}
-    <p class="astuce">${liste.length} joueurs. Chaque joueur apporte ses cartes ; sa note s’ajoute à leur valeur.${ouvert ? '' : ' Les ventes se font pendant le mercato.'}</p>
-    ${liste.map(({ j, i }) => { const cs = C.cartes.filter(c => c.ji === i); return `<div class="joueur"><div class="j-id"><b class="lil">${pastilleK(j.k)} ${j.nom}${j.recrue ? ' <em class="tag">recrue</em>' : j.formé ? ' <em class="tag">formé</em>' : ''}</b><small>${j.p}${j.note ? ` · note +${j.note}` : ''}${j.buts ? ` · ${j.buts} but${j.buts > 1 ? 's' : ''}` : ''}</small></div><div class="j-cartes">${cs.map(c => `<span class="mini-t r-${c.r}">${img(ICT[c.t])}</span>`).join('')}</div>${ouvert ? `<button class="btn sec petit" data-vj="${i}">Vendre ${valeurJoueur(i)} ${img('piece', 'mini-piece')}</button>` : ''}</div>`; }).join('')}
+    <p class="astuce">${liste.length} joueurs. Chaque joueur apporte ses cartes ; sa note s’ajoute à leur valeur. Ils progressent en jouant (barre d’expérience) ; après ${CADRE_MATCHS} matchs joués, un joueur devient cadre (+1).${ouvert ? '' : ' Les ventes se font pendant le mercato.'}</p>
+    ${liste.map(({ j, i }) => { const cs = C.cartes.filter(c => c.ji === i); return `<div class="joueur"><div class="j-id"><b class="lil">${pastilleK(j.k)} ${j.nom}${estCadre(j) ? ' <em class="tag or">cadre</em>' : ''}${j.recrue ? ' <em class="tag">recrue</em>' : j.formé ? ' <em class="tag">formé</em>' : ''}</b><small>${j.p}${j.age ? ` · ${j.age} ans` : ''}${j.note ? ` · note +${j.note}` : ''}${j.buts ? ` · ${j.buts} but${j.buts > 1 ? 's' : ''}` : ''}</small>${j.note < NOTE_MAX ? `<div class="xp" title="Expérience"><i style="transform:scaleX(${Math.min(1, (j.xp || 0) / seuilXP(j.note))})"></i></div>` : ''}</div><div class="j-cartes">${cs.map(c => `<span class="mini-t r-${c.r}">${img(ICT[c.t])}</span>`).join('')}</div>${ouvert ? `<button class="btn sec petit" data-vj="${i}">Vendre ${valeurJoueur(i)} ${img('piece', 'mini-piece')}</button>` : ''}</div>`; }).join('')}
   </div>`);
   document.querySelectorAll('[data-vj]').forEach(b => (b.onclick = () => {
     const i = +b.dataset.vj, j = C.effectif[i], err = peutVendre(i);
@@ -479,7 +490,46 @@ function segUne() {
 }
 
 // ---------- Centre de formation ----------
+// ---------- Club : installations et centre de formation ----------
+let SEG_CLUB = 'installations';
+function stadeSVG() {
+  const t = niveauInfra('tribunes'), pe = niveauInfra('pelouse'), en = niveauInfra('entrainement'), bo = niveauInfra('boutique'), inf = niveauInfra('infirmerie'), cl = clubPar(C.club);
+  const c1 = cl.c1 || '#2f7de1', c2 = cl.c2 || '#fff', h = [8, 16, 24, 32][t];
+  return `<svg viewBox="0 0 340 150" class="stade-svg" role="img" aria-label="Ton stade">
+    <rect x="0" y="0" width="340" height="150" rx="14" fill="#1c1240"/>
+    ${pe ? `<g fill="#ffd84d">${[[30, 18], [310, 18]].map(([x, y]) => `<rect x="${x - 2}" y="${y}" width="4" height="40" fill="#999"/><rect x="${x - 9}" y="${y - 8}" width="18" height="9" rx="2"/>${pe > 1 ? `<circle cx="${x}" cy="${y - 4}" r="16" fill="#ffd84d" opacity=".18"/>` : ''}`).join('')}</g>` : ''}
+    <rect x="${60 - h}" y="${40 - h}" width="${220 + 2 * h}" height="${80 + 2 * h}" rx="${10 + h / 2}" fill="${c1}" stroke="#000" stroke-width="2"/>
+    ${t ? Array.from({ length: t }, (_, i) => `<rect x="${60 - h + 4 + i * 8}" y="${40 - h + 4 + i * 8}" width="${220 + 2 * h - 8 - i * 16}" height="${80 + 2 * h - 8 - i * 16}" rx="${8 + h / 2 - i * 4}" fill="none" stroke="${c2}" stroke-opacity=".35" stroke-dasharray="3 3"/>`).join('') : ''}
+    <rect x="62" y="42" width="216" height="76" rx="6" fill="${pe ? '#2fae5b' : '#3f8f4f'}" stroke="#fff" stroke-width="1.5"/>
+    <line x1="170" y1="42" x2="170" y2="118" stroke="#fff" stroke-width="1.2"/><circle cx="170" cy="80" r="12" fill="none" stroke="#fff" stroke-width="1.2"/>
+    ${pe > 1 ? Array.from({ length: 8 }, (_, i) => `<rect x="${62 + i * 27}" y="42" width="13.5" height="76" fill="#fff" opacity=".06"/>`).join('') : ''}
+    ${en ? `<g transform="translate(8,96)"><rect width="38" height="${18 + en * 6}" y="${-en * 6}" fill="#e9e3ff" stroke="#000" stroke-width="1.5" rx="3"/><text x="19" y="12" font-size="7" text-anchor="middle" font-weight="800" fill="#1c1240">ENTR.</text></g>` : ''}
+    ${bo ? `<g transform="translate(296,100)"><rect width="36" height="${16 + bo * 5}" y="${-bo * 5}" fill="${c2}" stroke="#000" stroke-width="1.5" rx="3"/><text x="18" y="10" font-size="7" text-anchor="middle" font-weight="800" fill="#1c1240">SHOP</text></g>` : ''}
+    ${inf ? `<g transform="translate(300,${bo ? 74 : 104})"><rect width="26" height="20" fill="#fff" stroke="#000" stroke-width="1.5" rx="3"/><path d="M11 4h4v5h5v4h-5v5h-4v-5H6V9h5z" fill="#e8413c"/></g>` : ''}
+  </svg>`;
+}
+function installations(segs) {
+  const lignes = Object.entries(INFRAS).map(([k, I]) => {
+    const n = niveauInfra(k), max = I.niveaux.length, p = prixInfra(k);
+    return `<div class="infra"><div class="infra-ic">${img(I.ic)}</div><div class="infra-t"><b class="lil">${I.nom}</b><small>${I.txt}</small>
+      <div class="infra-niv">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>
+      <small class="infra-eff">${n ? `Actuel : ${I.effet(n)}` : 'Pas encore construit'}${n < max ? `<br>Prochain : ${I.effet(n + 1)}` : ''}</small></div>
+      ${n < max ? `<button class="btn petit" data-infra="${k}" ${C.pieces < p ? 'disabled' : ''}>${p} ${img('piece', 'mini-piece')}</button>` : '<span class="tag">max</span>'}</div>`;
+  }).join('');
+  vue(`<div class="page">${segs}${stadeSVG()}<p class="astuce">Les installations appartiennent au club : elles restent ici si tu signes ailleurs.</p>${lignes}</div>`);
+  document.querySelectorAll('[data-infra]').forEach(b => (b.onclick = () => {
+    const k = b.dataset.infra;
+    if (!acheterInfra(k)) return toast('Pas assez de pièces');
+    Son.jingle(); confettis(); toast(`${INFRAS[k].nom} : niveau ${niveauInfra(k)}`); barreHaut(); formation();
+  }));
+}
 function formation() {
+  const segs = `<div class="segments">${[['installations', 'Installations'], ['centre', 'Centre de formation']].map(([k, n]) => `<button class="seg ${SEG_CLUB === k ? 'on' : ''}" data-gc="${k}">${n}</button>`).join('')}</div>`;
+  const brancher = () => document.querySelectorAll('[data-gc]').forEach(b => (b.onclick = () => { Son.clic(); SEG_CLUB = b.dataset.gc; formation(); }));
+  if (SEG_CLUB === 'installations') { installations(segs); return brancher(); }
+  centreFormation(segs); brancher();
+}
+function centreFormation(segs) {
   const F = C.formation, N = CENTRE[F.niveau], suiv = CENTRE[F.niveau + 1];
   const etoiles = p => '<span class="pot">' + Array.from({ length: 5 }, (_, i) => `<i class="${i < p ? 'on' : ''}"></i>`).join('') + '</span>';
   const jeune = j => { const pret = j.prog >= 100, r = RAR_POT[j.pot];
@@ -487,7 +537,7 @@ function formation() {
       <div class="j-prog"><div class="barre"><i style="transform:scaleX(${j.prog / 100})"></i></div><small>${pret ? 'Prêt pour le monde pro' : j.prog + ' %'}</small></div>
       <div class="j-btns">${pret ? `<button class="btn petit" data-pro="${j.id}">Lancer en pro</button><button class="btn sec petit" data-vend="${j.id}">Vendre ${prixVente(j)} ${img('piece', 'mini-piece')}</button>`
         : `<button class="btn sec petit" data-seance="${j.id}" ${C.pieces < 30 ? 'disabled' : ''}>Séance +30 % · 30 ${img('piece', 'mini-piece')}</button><button class="btn sec petit" data-vend="${j.id}">Vendre ${Math.round(prixVente(j) * 0.4)} ${img('piece', 'mini-piece')}</button>`}</div></div>`; };
-  vue(`<div class="page">
+  vue(`<div class="page">${segs}
     <div class="centre-tete">${img('pousse', 'ct-ic')}<div><h1 class="lil">Centre de formation</h1><small>Niveau ${F.niveau} · ${F.jeunes.length}/${N.places} places · progression ${N.vit} % par match</small></div></div>
     ${F.jeunes.length ? F.jeunes.map(jeune).join('') : bulle('dede', 'Le centre est vide. De nouveaux jeunes arrivent à chaque début de saison s’il reste de la place.')}
     <div class="offre">${img('chantier', 'of-ic')}<div class="of-txt"><b class="lil">${suiv ? `Agrandir (niveau ${F.niveau + 1})` : 'Centre au maximum'}</b><small>${suiv ? `${suiv.places} places, ${suiv.vit} % par match, plus de chances de pépites.` : 'Le meilleur centre du pays.'}</small></div>${suiv ? `<button class="btn prix" id="bAgr" ${C.pieces < N.prix ? 'disabled' : ''}>${N.prix} ${img('piece', 'mini-piece')}</button>` : ''}</div>

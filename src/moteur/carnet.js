@@ -7,6 +7,7 @@ const carnetVide = () => ({ matchs: 0, tf: 0, efficacite: 0, combos: {}, trios: 
 // au moment où le joueur valide ses cartes, avant qu'elles quittent la main
 function noterChoix(r) {
   if (S && S.comp === 'defi') S.defiPts += ptsTempsFort(r);
+  noterJoueurs(r);
   if (!S || S.tuto) return;
   let eff = 1; try { const best = meilleurCoup(true).total; if (best > 0) eff = Math.min(1, r.total / best); } catch (e) { }
   S.carnet = S.carnet || { tf: [], tirs: [], plongeons: [] };

@@ -50,7 +50,8 @@ function joueurSurLeTerrain() {
 function tirerEvenement() {
   if (S.auto || S.tuto || S.tf >= NB_TF || (S.evts || []).length >= 2 || hasard() > 0.11) return null;
   const derniers = S.histo[S.histo.length - 1];
-  const pool = ['blessure', 'rougeAdv', 'ferveur', 'orage'];
+  const inf = niveauInfra('infirmerie'), pool = ['rougeAdv', 'ferveur', 'orage'];
+  if (inf === 0 || (inf === 1 && hasard() < 0.5)) pool.push('blessure'); // l'infirmerie évite les blessures
   if (S.tf >= 3) pool.push('rouge');
   if (derniers === 'p' || derniers === 'ia') pool.push('var', 'var');
   const id = pick(pool.filter(x => !(S.evts || []).includes(x)));

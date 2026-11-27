@@ -646,6 +646,27 @@ body.direct .jauge .repere{display:none}
 .ta-txt{font-size:10px}
 .ta-pop{animation:taPop 220ms cubic-bezier(.23,1,.32,1)}
 @keyframes taPop{from{opacity:0}to{opacity:1}}
+/* installations du club */
+.stade-svg{display:block;width:100%;height:auto;margin:6px 0 4px;border:3px solid #000;border-radius:16px;box-shadow:0 4px 0 #000}
+.infra{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:8px 0}
+.infra-ic img{width:34px;height:34px}
+.infra-t{flex:1;min-width:0}
+.infra-t small{display:block;font-size:12px;opacity:.8}
+.infra-niv{display:flex;gap:4px;margin:4px 0}
+.infra-niv i{width:18px;height:6px;border-radius:3px;background:rgba(255,255,255,.2)}
+.infra-niv i.on{background:#ffd23f}
+.infra-eff{color:#cfe9ff;opacity:1!important}
+.tag.or{background:#ffd23f;color:#1c1240}
+.xp{height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin-top:4px;overflow:hidden;max-width:160px}
+.xp i{display:block;height:100%;background:#5ad1ff;transform-origin:left}
+/* trophée soulevé */
+#celeb.trophee .cb-coupe{width:150px;left:75px;top:200px;opacity:0;animation:cbLeve 1.1s cubic-bezier(.23,1,.32,1) .2s forwards}
+#celeb.trophee .cb-bras{width:70px;top:170px;opacity:0;animation:cbPop .35s cubic-bezier(.23,1,.32,1) .9s forwards}
+#celeb.trophee .cb-bras.g{left:30px;transform:rotate(-20deg)}
+#celeb.trophee .cb-bras.d{right:30px;transform:scaleX(-1) rotate(-20deg)}
+@keyframes cbLeve{0%{opacity:0;transform:translateY(60px) scale(.8)}60%{opacity:1;transform:translateY(-150px) scale(1.08)}100%{opacity:1;transform:translateY(-130px) scale(1)}}
+@media (prefers-reduced-motion: reduce){#celeb.trophee .cb-coupe{animation:none;opacity:1;transform:translateY(-130px)}}
+#celeb.trophee .cb-txt{font-size:36px;-webkit-text-stroke:4px #000;white-space:normal;width:330px;text-align:center;line-height:1.05;top:-30px}
 
 </style>
 </head>
@@ -876,6 +897,7 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
   if ((c.v || 1) < 7 && !c.nouveautesV16) c.nouveautesV17 = true;
   // titres de division (champion de Ligue 3, de Ligue 2...) : désormais dans la vitrine
   if ((c.v || 1) < 8) (c.palmares || []).forEach(p => { if (p.rang === 1 && !c.trophees.some(t => t.k === 'titre' && t.s === p.s)) c.trophees.push({ s: p.s, k: 'titre', nom: `Champion de ${PAYS[p.pays || c.pays].divs[p.div]}` }); });
+  if ((c.v || 1) < 10) (c.effectif || []).forEach((j, i) => initJoueur(j, i));
   if ((c.v || 1) < 9) {
     // nouvelles défenses : Bloc devient un repli sans fiche. On rembourse ce qui a été payé (anciens prix).
     let rendu = 0; const ancienPrix = l => 60 + 20 * (l - 1);
@@ -887,14 +909,14 @@ function migrer(c) { // sauvegardes de la v7 et de la v8
     c.pieces += rendu; c.nouveautesV18 = rendu || true;
   }
   C = av;
-  c.v = 9; return c;
+  c.v = 10; return c;
 }
 function effacer() { try { localStorage.removeItem(CLE); } catch (e) { } }
 
 function valeurCarte(c) {
   if (estConsigne(c.t)) return 0;
   const j = C.effectif[c.ji], R = RARETES[c.r];
-  return TYPES[c.t].base + (j ? j.note : 0) + R.bonus + 2 * (c.niv - 1) + (c.sp && SPECIAUX[c.t].plus ? SPECIAUX[c.t].plus : 0);
+  return TYPES[c.t].base + (j ? j.note + (estCadre(j) ? 1 : 0) : 0) + R.bonus + 2 * (c.niv - 1) + (c.sp && SPECIAUX[c.t].plus ? SPECIAUX[c.t].plus : 0);
 }
 function nouvelleCarte(t, ji, r) {
   const c = { id: C.nid++, t, ji, r: r || 'commune', niv: 1 };
@@ -905,6 +927,7 @@ function nouvelleCarriere(clubId) {
   const pays = clubPar(clubId).pays;
   C = { v: 2, pays, club: clubId, saison: 1, div: 3, journee: 0, nid: 0, pieces: 40, stars: ['capitaine'], niveaux: {}, effectif: [], cartes: [], journal: [], palmares: [], trophees: [], vus: {}, rival: null, boutique: null, divisions: {}, coupes: {}, qualifEurope: null };
   GABARIT.forEach(g => C.effectif.push({ nom: nomJoueur(), p: g.p, l: g.l, k: g.k, note: rnd(3), buts: 0, matchs: 0 }));
+  C.effectif.forEach((j, i) => initJoueur(j, i));
   GABARIT.forEach((g, ji) => g.c.forEach(t => C.cartes.push(nouvelleCarte(t, ji, estConsigne(t) ? 'rare' : 'commune'))));
   // deux cartes rares pour démarrer
   melanger(C.cartes.filter(c => TYPES[c.t].att)).slice(0, 2).forEach(c => (c.r = 'rare'));
@@ -1046,9 +1069,11 @@ function bilanMatch(tab) {
   if (S.stats.cartons) ajoute(avancerObjectif('cartons', S.stats.cartons));
   C.serie = gp >= gc ? (C.serie || 0) + 1 : 0; ajoute(avancerObjectif('serie', C.serie, true));
   if (comp === 'nat' && C.coupes.nat && (C.coupes.nat.tour >= 2 || C.coupes.nat.gagne)) ajoute(avancerObjectif('coupe', 1));
+  const recettes = recettesMatch(S.dom); gain += recettes;
   C.pieces += gain;
   S.buteurs.forEach(ji => C.effectif[ji] && C.effectif[ji].buts++);
   C.effectif.forEach(j => j.matchs++);
+  const progres = progresserJoueurs();
   const une = titreJournal(gp, gc, coupe, tab);
   const sc = `${clubPar(C.club).court} ${gp} - ${gc} ${clubPar(opp).court}` + (tab ? ` (t.a.b. ${tab.p}-${tab.ia})` : '');
   C.journal.unshift({ rival: rivalTxt, s: C.saison, j: C.journee + 1, div: C.div, pays: C.pays, comp: coupe ? `${coupe.nom} · ${coupe.tourJoue}` : null, txt: une, score: sc, opp });
@@ -1060,7 +1085,7 @@ function bilanMatch(tab) {
   C.meteoProchaine = pick(Object.keys(METEOS));
   nouvelleBoutique();
   sauver();
-  return { gain, une, recompenses, coupe, defi: D, defiOk, objFaits };
+  return { gain, une, recompenses, coupe, defi: D, defiOk, objFaits, progres, recettes };
 }
 function titreJournal(gp, gc, coupe, tab) {
   const moi = clubPar(C.club).nom, eux = clubPar(S.opp).nom;
@@ -1089,6 +1114,7 @@ function finSaison() {
   const objRang = avancerObjectif('rang', rang <= ((C.objectifs || []).find(o => o.id === 'rang') || { cible: 0 }).cible ? 99 : 0, true);
   const objectifsSaison = (C.objectifs || []).map(o => ({ txt: OBJ_SAISON[o.id].txt(o), fait: o.fait, prime: OBJ_SAISON[o.id].prime }));
   C.palmares.push({ s: C.saison, div: C.div, pays: C.pays, club: C.club, rang, nb, issue: issueS, coupes: coupesSaison });
+  const retraites = vieillir();
   if (rang === 1) C.trophees.push({ s: C.saison, k: 'titre', nom: `Champion de ${nomDiv(C.div)}` });
   // montées et descentes dans tout le pays
   const bruit = {}; CLUBS.forEach(cl => { if (cl.pays === C.pays) bruit[cl.id] = cl.force + hasard() * 0.25; });
@@ -1119,7 +1145,7 @@ function finSaison() {
   nouvelleSaison();
   const nouveaux = arriveeJeunes();
   sauver();
-  return { objectifsSaison, rang, nb, issue: issueS, avant, apres: C.div, qualif: C.qualifEurope || (C.coupes.eur && C.coupes.eur.k), nouveaux, offres: C.offres, coupes: coupesSaison };
+  return { retraites, objectifsSaison, rang, nb, issue: issueS, avant, apres: C.div, qualif: C.qualifEurope || (C.coupes.eur && C.coupes.eur.k), nouveaux, offres: C.offres, coupes: coupesSaison };
 }
 function accepterOffre(id) {
   const o = (C.offres || []).find(x => x.id === id); if (!o) return;
@@ -1275,6 +1301,7 @@ function valeurEnMatch(c, att, n) {
     if (advActif('blocbas') && c.t === 'frappe') { v += 3; notes.push('bloc bas +3'); }
     if (advActif('appels') && c.t === 'marquage') { v = 0; notes.push('appels'); }
     if (advActif('lointaine') && c.t === 'gardien') { v *= 2; notes.push('frappe de loin ×2'); }
+    const pel = S.dom && !S.tuto && !estAmical() ? niveauInfra('pelouse') : 0; if (pel && v > 0) { v += pel; notes.push(`pelouse +${pel}`); }
     return { c, v, notes };
 }
 function calcul(cartes) {
@@ -2200,7 +2227,8 @@ function joueurSurLeTerrain() {
 function tirerEvenement() {
   if (S.auto || S.tuto || S.tf >= NB_TF || (S.evts || []).length >= 2 || hasard() > 0.11) return null;
   const derniers = S.histo[S.histo.length - 1];
-  const pool = ['blessure', 'rougeAdv', 'ferveur', 'orage'];
+  const inf = niveauInfra('infirmerie'), pool = ['rougeAdv', 'ferveur', 'orage'];
+  if (inf === 0 || (inf === 1 && hasard() < 0.5)) pool.push('blessure'); // l'infirmerie évite les blessures
   if (S.tf >= 3) pool.push('rouge');
   if (derniers === 'p' || derniers === 'ia') pool.push('var', 'var');
   const id = pick(pool.filter(x => !(S.evts || []).includes(x)));
@@ -2263,6 +2291,74 @@ function issuePlongeon(qualite, couverts, tendance) {
 function qualiteJauge(pos, vert, orange) { const p = Math.abs(pos - 0.5) * 100; return p <= vert / 2 ? 'vert' : p <= orange / 2 ? 'jaune' : 'rouge'; }
 
 // =====================================================================
+// LE CLUB GRANDIT : installations à acheter
+// =====================================================================
+// Elles appartiennent au club : en signant ailleurs, on repart des installations du nouveau club.
+const INFRAS = {
+  tribunes: { nom: 'Tribunes', ic: 'stade', niveaux: [150, 300, 500], effet: n => `+${[0, 5, 10, 15][n]} pièces par match à domicile`, txt: 'Plus de supporters, plus de recettes.' },
+  boutique: { nom: 'Boutique du club', ic: 'maillot', niveaux: [100, 200, 350], effet: n => `+${[0, 3, 6, 10][n]} pièces après chaque match`, txt: 'Maillots et écharpes aux couleurs du club.' },
+  pelouse: { nom: 'Pelouse et éclairage', ic: 'soleil', niveaux: [200, 400], effet: n => `+${n} point${n > 1 ? 's' : ''} sur chaque carte à domicile`, txt: 'Un billard sous les projecteurs : on joue mieux chez soi.' },
+  entrainement: { nom: 'Centre d’entraînement', ic: 'sablier', niveaux: [120, 250, 450], effet: n => `entraînements et expérience +${25 * n} %`, txt: 'Les joueurs progressent plus vite.' },
+  infirmerie: { nom: 'Infirmerie', ic: 'bouclier', niveaux: [150, 300], effet: n => n >= 2 ? 'plus de blessure en match' : 'deux fois moins de blessures', txt: 'Kiné, cryo, bons soins.' }
+};
+const infraClub = () => { C.infras = C.infras || {}; return (C.infras[C.club] = C.infras[C.club] || {}); };
+const niveauInfra = k => (typeof C !== 'undefined' && C ? infraClub()[k] || 0 : 0);
+const prixInfra = k => INFRAS[k].niveaux[niveauInfra(k)];
+function acheterInfra(k) {
+  const p = prixInfra(k); if (p == null || C.pieces < p) return false;
+  C.pieces -= p; infraClub()[k] = niveauInfra(k) + 1; sauver(); return true;
+}
+// recettes après un match de carrière
+const recettesMatch = dom => (dom ? [0, 5, 10, 15][niveauInfra('tribunes')] : 0) + [0, 3, 6, 10][niveauInfra('boutique')];
+
+// =====================================================================
+// JOUEURS VIVANTS : expérience, progression, cadres, âge et retraites
+// =====================================================================
+// Un joueur gagne de l'expérience en jouant ses cartes (+1 par carte, +3 par but).
+// Assez d'expérience : sa note monte (donc toutes ses cartes). 20 matchs joués : cadre du club (+1).
+// Chaque été il prend un an ; vers 33 ans il raccroche et un jeune formé au club reprend ses cartes.
+const NOTE_MAX = 7, CADRE_MATCHS = 20;
+const seuilXP = note => 12 + 6 * Math.max(0, note);
+const estCadre = j => (j.jm || 0) >= CADRE_MATCHS;
+function initJoueur(j, i) {
+  if (j.age == null) j.age = 19 + (hacher((j.nom || '') + i) % 13);
+  if (j.xp == null) j.xp = 0;
+  if (j.jm == null) j.jm = 0;
+  return j;
+}
+// cartes jouées pendant ce match, par joueur (rempli à chaque temps fort)
+function noterJoueurs(r) { if (!S || S.tuto) return; S.xpMatch = S.xpMatch || {}; r.valides.forEach(c => (S.xpMatch[c.ji] = (S.xpMatch[c.ji] || 0) + 1)); }
+// fin de match (carrière) : expérience, montées de note, nouveaux cadres
+function progresserJoueurs() {
+  const gains = Object.assign({}, S.xpMatch || {}), progres = [];
+  (S.buteurs || []).forEach(ji => (gains[ji] = (gains[ji] || 0) + 3));
+  const bonus = 1 + 0.25 * niveauInfra('entrainement');
+  Object.entries(gains).forEach(([ji, n]) => {
+    const j = C.effectif[ji]; if (!j || j.vendu) return;
+    initJoueur(j, ji);
+    const cadreAvant = estCadre(j);
+    j.jm++; j.xp += Math.round(n * bonus);
+    while (j.note < NOTE_MAX && j.xp >= seuilXP(j.note)) { j.xp -= seuilXP(j.note); j.note++; progres.push({ nom: j.nom, txt: `passe à +${j.note}` }); }
+    if (!cadreAvant && estCadre(j)) progres.push({ nom: j.nom, txt: 'devient un cadre du club (+1)' });
+  });
+  return progres;
+}
+// été : un an de plus, et les anciens raccrochent
+function vieillir() {
+  const retraites = [];
+  C.effectif.forEach((j, i) => {
+    if (j.vendu) return;
+    initJoueur(j, i); j.age++;
+    const part = j.age >= 35 || (j.age >= 33 && hasard() < 0.5);
+    if (!part) return;
+    const nv = nomJoueur(), ancien = j.nom;
+    Object.assign(j, { nom: nv, note: Math.max(1, j.note - 2), age: 18 + rnd(3), xp: 0, jm: 0, buts: 0, matchs: 0, formé: true, recrue: false });
+    retraites.push({ ancien, nouveau: nv, p: j.p });
+  });
+  return retraites;
+}
+
+// =====================================================================
 // CARNET DE JEU : comment le joueur joue (pour analyser l'équilibre)
 // =====================================================================
 // Léger : des compteurs cumulés et un résumé des 40 derniers matchs, rangés dans la sauvegarde.
@@ -2271,6 +2367,7 @@ const carnetVide = () => ({ matchs: 0, tf: 0, efficacite: 0, combos: {}, trios: 
 // au moment où le joueur valide ses cartes, avant qu'elles quittent la main
 function noterChoix(r) {
   if (S && S.comp === 'defi') S.defiPts += ptsTempsFort(r);
+  noterJoueurs(r);
   if (!S || S.tuto) return;
   let eff = 1; try { const best = meilleurCoup(true).total; if (best > 0) eff = Math.min(1, r.total / best); } catch (e) { }
   S.carnet = S.carnet || { tf: [], tirs: [], plongeons: [] };
@@ -2589,6 +2686,17 @@ function celebrer(type, nom) {
   setTimeout(() => d.classList.add('sortie'), 1900);
   setTimeout(() => d.remove(), 2300);
 }
+// trophée soulevé : coupe gagnée, titre, montée
+function souleverTrophee(titre, sous) {
+  const ancien = $('#celeb'); if (ancien) ancien.remove();
+  const cl = clubPar(C.club), d = document.createElement('div');
+  d.id = 'celeb'; d.className = 'trophee';
+  d.style.setProperty('--cb1', cl.c1 || '#ffd23f'); d.style.setProperty('--cb2', '#ffd23f');
+  d.innerHTML = `<div class="cb-fond"></div><div class="cb-burst"></div><div class="cb-scene"><img class="cb-coupe" src="${IMG.trophee}" alt=""><img class="cb-bras g" src="${IMG.bras || IMG.poignee}" alt=""><img class="cb-bras d" src="${IMG.bras || IMG.poignee}" alt=""><div class="cb-txt lil">${titre}</div>${sous ? `<div class="cb-nom">${sous}</div>` : ''}</div>`;
+  document.body.appendChild(d); Son.jingle(); confettis();
+  setTimeout(() => d.classList.add('sortie'), 2900);
+  setTimeout(() => d.remove(), 3300);
+}
 const nomGardien = () => { const o = effectifActif().find(o => o.j.p === 'Gardien'); return o ? o.j.nom : null; };
 const nomButeur = () => S.buteurs.length ? C.effectif[S.buteurs[S.buteurs.length - 1]].nom : null;
 function flash(t) { const f = $('#flash'), s = f.querySelector('span'); s.textContent = t; f.style.display = 'flex'; s.style.animation = 'none'; void s.offsetWidth; s.style.animation = ''; setTimeout(() => (f.style.display = 'none'), 1500); }
@@ -2752,7 +2860,7 @@ function hub(onglet) {
   $('#bMenu').onclick = () => { Son.clic(); modal(`<h1 class="lil">Menu</h1><div class="btns col"><button class="btn sec" id="mReg">Comment jouer</button><button class="btn sec" id="mSon">${Son.on ? 'Couper le son' : 'Activer le son'}</button><button class="btn sec" id="mRgl">Réglages</button><button class="btn sec" id="mSauv">Sauvegarde</button><button class="btn sec" id="mTut">Refaire l'entraînement</button><button class="btn sec" id="mAcc">Écran d'accueil</button>${COOP ? '<button class="btn sec" id="mSolo">Revenir à ma carrière solo</button>' : '<button class="btn sec" id="mCoop">Carrière coop</button><button class="btn sec" id="mNew">Recommencer ma carrière</button>'}<button class="btn" id="mFer">Fermer</button></div>`, () => { $('#mReg').onclick = regles; $('#mSon').onclick = () => { Son.on = !Son.on; fermerModal(); }; $('#mAcc').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; accueil(); }; $('#mFer').onclick = fermerModal; $('#mTut').onclick = () => { fermerModal(); lancerTuto(1); }; $('#mSauv').onclick = ecranSauvegarde; $('#mRgl').onclick = ecranReglages; on('mSolo', () => { fermerModal(); quitterCoop(); C ? hub('vestiaire') : accueil(); }); on('mCoop', () => { fermerModal(); ecranCoop(); }); if ($('#mNew')) $('#mNew').onclick = () => modal(`<h1 class="lil">Recommencer ?</h1><p>Ta carrière avec ${clubPar(C.club).nom} sera effacée, sur ce téléphone et dans la sauvegarde automatique. Tes amis et ton code restent.</p><div class="btns"><button class="btn" id="mOui">Recommencer</button><button class="btn sec" id="mNon">Annuler</button></div>`, () => { $('#mOui').onclick = () => { fermerModal(); $('#barre-haut').innerHTML = ''; $('#nav').innerHTML = ''; demarrerNouvelle(); }; $('#mNon').onclick = fermerModal; }); }); };
   if (ONGLET === 'classement' || ONGLET === 'journal') ONGLET = 'competitions';
   const pret = C.formation.jeunes.some(j => j.prog >= 100);
-  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'pousse', 'Formation'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
+  const tabs = [['vestiaire', 'stade', 'Vestiaire'], ['effectif', 'maillot', 'Effectif'], ['formation', 'chantier', 'Club'], ['boutique', 'boutique', 'Boutique'], ['competitions', 'classement', 'Compét.'], ['amis', 'poignee', 'Amis']];
   $('#nav').innerHTML = tabs.map(([id, ic, nom]) => `<button class="onglet ${id === ONGLET ? 'on' : ''}" data-o="${id}">${img(ic)}<span>${nom}</span>${id === 'formation' && pret ? '<i class="pastille-notif"></i>' : ''}</button>`).join('');
   $('#nav').querySelectorAll('.onglet').forEach(b => (b.onclick = () => { Son.clic(); hub(b.dataset.o); }));
   ({ vestiaire, effectif, formation, boutique, competitions, amis })[ONGLET]();
@@ -2879,8 +2987,8 @@ function joueurs(segs) {
   const ordre = { G: 0, DEF: 1, MIL: 2, ATT: 3 };
   liste.sort((a, b) => (ordre[a.j.l] ?? 2) - (ordre[b.j.l] ?? 2));
   vue(`<div class="page">${segs}
-    <p class="astuce">${liste.length} joueurs. Chaque joueur apporte ses cartes ; sa note s’ajoute à leur valeur.${ouvert ? '' : ' Les ventes se font pendant le mercato.'}</p>
-    ${liste.map(({ j, i }) => { const cs = C.cartes.filter(c => c.ji === i); return `<div class="joueur"><div class="j-id"><b class="lil">${pastilleK(j.k)} ${j.nom}${j.recrue ? ' <em class="tag">recrue</em>' : j.formé ? ' <em class="tag">formé</em>' : ''}</b><small>${j.p}${j.note ? ` · note +${j.note}` : ''}${j.buts ? ` · ${j.buts} but${j.buts > 1 ? 's' : ''}` : ''}</small></div><div class="j-cartes">${cs.map(c => `<span class="mini-t r-${c.r}">${img(ICT[c.t])}</span>`).join('')}</div>${ouvert ? `<button class="btn sec petit" data-vj="${i}">Vendre ${valeurJoueur(i)} ${img('piece', 'mini-piece')}</button>` : ''}</div>`; }).join('')}
+    <p class="astuce">${liste.length} joueurs. Chaque joueur apporte ses cartes ; sa note s’ajoute à leur valeur. Ils progressent en jouant (barre d’expérience) ; après ${CADRE_MATCHS} matchs joués, un joueur devient cadre (+1).${ouvert ? '' : ' Les ventes se font pendant le mercato.'}</p>
+    ${liste.map(({ j, i }) => { const cs = C.cartes.filter(c => c.ji === i); return `<div class="joueur"><div class="j-id"><b class="lil">${pastilleK(j.k)} ${j.nom}${estCadre(j) ? ' <em class="tag or">cadre</em>' : ''}${j.recrue ? ' <em class="tag">recrue</em>' : j.formé ? ' <em class="tag">formé</em>' : ''}</b><small>${j.p}${j.age ? ` · ${j.age} ans` : ''}${j.note ? ` · note +${j.note}` : ''}${j.buts ? ` · ${j.buts} but${j.buts > 1 ? 's' : ''}` : ''}</small>${j.note < NOTE_MAX ? `<div class="xp" title="Expérience"><i style="transform:scaleX(${Math.min(1, (j.xp || 0) / seuilXP(j.note))})"></i></div>` : ''}</div><div class="j-cartes">${cs.map(c => `<span class="mini-t r-${c.r}">${img(ICT[c.t])}</span>`).join('')}</div>${ouvert ? `<button class="btn sec petit" data-vj="${i}">Vendre ${valeurJoueur(i)} ${img('piece', 'mini-piece')}</button>` : ''}</div>`; }).join('')}
   </div>`);
   document.querySelectorAll('[data-vj]').forEach(b => (b.onclick = () => {
     const i = +b.dataset.vj, j = C.effectif[i], err = peutVendre(i);
@@ -2997,7 +3105,46 @@ function segUne() {
 }
 
 // ---------- Centre de formation ----------
+// ---------- Club : installations et centre de formation ----------
+let SEG_CLUB = 'installations';
+function stadeSVG() {
+  const t = niveauInfra('tribunes'), pe = niveauInfra('pelouse'), en = niveauInfra('entrainement'), bo = niveauInfra('boutique'), inf = niveauInfra('infirmerie'), cl = clubPar(C.club);
+  const c1 = cl.c1 || '#2f7de1', c2 = cl.c2 || '#fff', h = [8, 16, 24, 32][t];
+  return `<svg viewBox="0 0 340 150" class="stade-svg" role="img" aria-label="Ton stade">
+    <rect x="0" y="0" width="340" height="150" rx="14" fill="#1c1240"/>
+    ${pe ? `<g fill="#ffd84d">${[[30, 18], [310, 18]].map(([x, y]) => `<rect x="${x - 2}" y="${y}" width="4" height="40" fill="#999"/><rect x="${x - 9}" y="${y - 8}" width="18" height="9" rx="2"/>${pe > 1 ? `<circle cx="${x}" cy="${y - 4}" r="16" fill="#ffd84d" opacity=".18"/>` : ''}`).join('')}</g>` : ''}
+    <rect x="${60 - h}" y="${40 - h}" width="${220 + 2 * h}" height="${80 + 2 * h}" rx="${10 + h / 2}" fill="${c1}" stroke="#000" stroke-width="2"/>
+    ${t ? Array.from({ length: t }, (_, i) => `<rect x="${60 - h + 4 + i * 8}" y="${40 - h + 4 + i * 8}" width="${220 + 2 * h - 8 - i * 16}" height="${80 + 2 * h - 8 - i * 16}" rx="${8 + h / 2 - i * 4}" fill="none" stroke="${c2}" stroke-opacity=".35" stroke-dasharray="3 3"/>`).join('') : ''}
+    <rect x="62" y="42" width="216" height="76" rx="6" fill="${pe ? '#2fae5b' : '#3f8f4f'}" stroke="#fff" stroke-width="1.5"/>
+    <line x1="170" y1="42" x2="170" y2="118" stroke="#fff" stroke-width="1.2"/><circle cx="170" cy="80" r="12" fill="none" stroke="#fff" stroke-width="1.2"/>
+    ${pe > 1 ? Array.from({ length: 8 }, (_, i) => `<rect x="${62 + i * 27}" y="42" width="13.5" height="76" fill="#fff" opacity=".06"/>`).join('') : ''}
+    ${en ? `<g transform="translate(8,96)"><rect width="38" height="${18 + en * 6}" y="${-en * 6}" fill="#e9e3ff" stroke="#000" stroke-width="1.5" rx="3"/><text x="19" y="12" font-size="7" text-anchor="middle" font-weight="800" fill="#1c1240">ENTR.</text></g>` : ''}
+    ${bo ? `<g transform="translate(296,100)"><rect width="36" height="${16 + bo * 5}" y="${-bo * 5}" fill="${c2}" stroke="#000" stroke-width="1.5" rx="3"/><text x="18" y="10" font-size="7" text-anchor="middle" font-weight="800" fill="#1c1240">SHOP</text></g>` : ''}
+    ${inf ? `<g transform="translate(300,${bo ? 74 : 104})"><rect width="26" height="20" fill="#fff" stroke="#000" stroke-width="1.5" rx="3"/><path d="M11 4h4v5h5v4h-5v5h-4v-5H6V9h5z" fill="#e8413c"/></g>` : ''}
+  </svg>`;
+}
+function installations(segs) {
+  const lignes = Object.entries(INFRAS).map(([k, I]) => {
+    const n = niveauInfra(k), max = I.niveaux.length, p = prixInfra(k);
+    return `<div class="infra"><div class="infra-ic">${img(I.ic)}</div><div class="infra-t"><b class="lil">${I.nom}</b><small>${I.txt}</small>
+      <div class="infra-niv">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>
+      <small class="infra-eff">${n ? `Actuel : ${I.effet(n)}` : 'Pas encore construit'}${n < max ? `<br>Prochain : ${I.effet(n + 1)}` : ''}</small></div>
+      ${n < max ? `<button class="btn petit" data-infra="${k}" ${C.pieces < p ? 'disabled' : ''}>${p} ${img('piece', 'mini-piece')}</button>` : '<span class="tag">max</span>'}</div>`;
+  }).join('');
+  vue(`<div class="page">${segs}${stadeSVG()}<p class="astuce">Les installations appartiennent au club : elles restent ici si tu signes ailleurs.</p>${lignes}</div>`);
+  document.querySelectorAll('[data-infra]').forEach(b => (b.onclick = () => {
+    const k = b.dataset.infra;
+    if (!acheterInfra(k)) return toast('Pas assez de pièces');
+    Son.jingle(); confettis(); toast(`${INFRAS[k].nom} : niveau ${niveauInfra(k)}`); barreHaut(); formation();
+  }));
+}
 function formation() {
+  const segs = `<div class="segments">${[['installations', 'Installations'], ['centre', 'Centre de formation']].map(([k, n]) => `<button class="seg ${SEG_CLUB === k ? 'on' : ''}" data-gc="${k}">${n}</button>`).join('')}</div>`;
+  const brancher = () => document.querySelectorAll('[data-gc]').forEach(b => (b.onclick = () => { Son.clic(); SEG_CLUB = b.dataset.gc; formation(); }));
+  if (SEG_CLUB === 'installations') { installations(segs); return brancher(); }
+  centreFormation(segs); brancher();
+}
+function centreFormation(segs) {
   const F = C.formation, N = CENTRE[F.niveau], suiv = CENTRE[F.niveau + 1];
   const etoiles = p => '<span class="pot">' + Array.from({ length: 5 }, (_, i) => `<i class="${i < p ? 'on' : ''}"></i>`).join('') + '</span>';
   const jeune = j => { const pret = j.prog >= 100, r = RAR_POT[j.pot];
@@ -3005,7 +3152,7 @@ function formation() {
       <div class="j-prog"><div class="barre"><i style="transform:scaleX(${j.prog / 100})"></i></div><small>${pret ? 'Prêt pour le monde pro' : j.prog + ' %'}</small></div>
       <div class="j-btns">${pret ? `<button class="btn petit" data-pro="${j.id}">Lancer en pro</button><button class="btn sec petit" data-vend="${j.id}">Vendre ${prixVente(j)} ${img('piece', 'mini-piece')}</button>`
         : `<button class="btn sec petit" data-seance="${j.id}" ${C.pieces < 30 ? 'disabled' : ''}>Séance +30 % · 30 ${img('piece', 'mini-piece')}</button><button class="btn sec petit" data-vend="${j.id}">Vendre ${Math.round(prixVente(j) * 0.4)} ${img('piece', 'mini-piece')}</button>`}</div></div>`; };
-  vue(`<div class="page">
+  vue(`<div class="page">${segs}
     <div class="centre-tete">${img('pousse', 'ct-ic')}<div><h1 class="lil">Centre de formation</h1><small>Niveau ${F.niveau} · ${F.jeunes.length}/${N.places} places · progression ${N.vit} % par match</small></div></div>
     ${F.jeunes.length ? F.jeunes.map(jeune).join('') : bulle('dede', 'Le centre est vide. De nouveaux jeunes arrivent à chaque début de saison s’il reste de la place.')}
     <div class="offre">${img('chantier', 'of-ic')}<div class="of-txt"><b class="lil">${suiv ? `Agrandir (niveau ${F.niveau + 1})` : 'Centre au maximum'}</b><small>${suiv ? `${suiv.places} places, ${suiv.vit} % par match, plus de chances de pépites.` : 'Le meilleur centre du pays.'}</small></div>${suiv ? `<button class="btn prix" id="bAgr" ${C.pieces < N.prix ? 'disabled' : ''}>${N.prix} ${img('piece', 'mini-piece')}</button>` : ''}</div>
@@ -3439,7 +3586,7 @@ function ecranFin(tab) {
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
-  if (cp && cp.gagne) { setTimeout(confettis, 1300); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
+  if (cp && cp.gagne) { setTimeout(() => souleverTrophee(cp.nom, clubPar(C.club).nom), 900); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
   const cpTxt = cp ? `<div class="cp-res ${cp.gagne ? 'or' : ''}">${img(cp.gagne ? 'trophee' : COUPES[cp.k].ic, 'mini-ic')} ${cp.gagne ? `Vainqueur de la ${cp.nom} ! Prime : ${cp.prime} pièces` : cp.qualifie ? `${cp.nom} : direction la ${cp.suivant.toLowerCase()}` : `${cp.nom} : fin de l'aventure en ${cp.tourJoue.toLowerCase()}`}</div>` : '';
   vue(`<div class="page fin-match">
     <div class="fm-titre lil ${gagne ? 'v' : gp < gc || (cp && !cp.qualifie) ? 'd' : 'n'}">${titre}</div>
@@ -3450,7 +3597,8 @@ function ecranFin(tab) {
     <div class="journal-une"><div class="une-logo lil">${img('journal', 'mini-ic')} La Une</div><div class="une-t">${bilan.une}</div><div class="une-s">Meilleure action : ${S.stats.meilleurCombo || 'aucune'} à ${S.stats.meilleur}</div>${C.journal[0] && C.journal[0].rival ? `<div class="une-s">${C.journal[0].rival}</div>` : ''}</div>
     ${bilan.defi ? `<div class="cp-res ${bilan.defiOk ? 'or' : ''}">${img('medaille', 'mini-ic')} Défi « ${bilan.defi.txt} » ${bilan.defiOk ? `réussi : +${PRIME_DEFI}` : 'manqué'}</div>` : ''}
     ${(bilan.objFaits || []).map(o => `<div class="cp-res or">${img('trophee', 'mini-ic')} Objectif du président atteint : ${OBJ_SAISON[o.id].txt(o)} (+${OBJ_SAISON[o.id].prime})</div>`).join('')}
-    <div class="gain lil">${img('piece')} +${bilan.gain} pièces</div>
+    ${(bilan.progres || []).map(x => `<div class="cp-res">${img('fusee', 'mini-ic')} <b>${x.nom}</b> ${x.txt}</div>`).join('')}
+    <div class="gain lil">${img('piece')} +${bilan.gain} pièces${bilan.recettes ? ` <small>(dont ${bilan.recettes} de recettes)</small>` : ''}</div>
     ${bilan.recompenses.length ? `<h2 class="lil centre">Choisis ta récompense</h2>
     <div class="recompenses">${bilan.recompenses.map((o, i) => `<button class="recomp" data-i="${i}">${recompHTML(o)}</button>`).join('')}</div>` : `<p class="petit centre">Pas de récompense sans victoire. On se rattrape au prochain match.</p><button class="btn gros" id="bFinOk">Retour au vestiaire</button>`}
   </div>`, 'plein');
@@ -3483,12 +3631,14 @@ function finDeSaison() {
     descente: [`La descente fait mal. Mais un club, ça se relève. Dédé a déjà relavé les maillots.`, 'baisse', 'Relégation']
   }[res.issue];
   const cps = (res.coupes || []).map(c => `<div class="palm">${img(c.gagne ? 'trophee' : 'medaille2', 'mini-ic')} ${c.nom} : ${c.gagne ? 'vainqueur !' : c.tour.toLowerCase()}</div>`).join('');
+  const retr = (res.retraites || []).map(r => `<div class="palm">${img('poignee', 'mini-ic')} ${r.ancien} prend sa retraite. ${r.nouveau}, formé au club, reprend ses cartes.</div>`).join('');
   const jeunes = res.nouveaux && res.nouveaux.length ? `<div class="palm">${img('poussin', 'mini-ic')} ${res.nouveaux.length} jeune${res.nouveaux.length > 1 ? 's' : ''} au centre de formation : ${res.nouveaux.map(j => `${j.nom} (${'★'.repeat(j.pot)})`).join(', ')}</div>` : '';
   vue(`<div class="scene">${img(txt[1], 'scene-ic grosse')}<div class="fm-titre lil v">${txt[2]}</div>${bulle(res.issue === 'champion' ? 'president' : 'dede', txt[0])}
-    <div class="bilan-saison">${(res.objectifsSaison || []).map(o => `<div class="palm ${o.fait ? 'ok' : ''}">${o.fait ? '✓' : '✕'} ${o.txt}${o.fait ? ` (+${o.prime})` : ''}</div>`).join('')}${cps}${jeunes}</div>
+    <div class="bilan-saison">${(res.objectifsSaison || []).map(o => `<div class="palm ${o.fait ? 'ok' : ''}">${o.fait ? '✓' : '✕'} ${o.txt}${o.fait ? ` (+${o.prime})` : ''}</div>`).join('')}${cps}${jeunes}${retr}</div>
     <div class="gain lil">${img('piece')} +${{ montee: 80, champion: 150, europe: 100, maintien: 40, descente: 30 }[res.issue]} pièces de prime</div>
     <button class="btn gros" id="bSaison">${res.offres && res.offres.length ? `Voir les offres (${res.offres.length})` : `Saison ${C.saison} en ${nomDiv(C.div)}`}</button></div>`, 'plein scene-fond');
   if (['montee', 'champion', 'europe'].includes(res.issue)) { Son.jingle(); confettis(); }
+  if (rang === 1) setTimeout(() => souleverTrophee(`Champion de ${nomDiv(res.avant || C.div)}`, cl.nom), 500);
   const fil = { montee: `monte en ${nomDiv(res.apres)} avec ${cl.nom}`, champion: `est champion ${P.de} avec ${cl.nom} !`, europe: `qualifie ${cl.nom} pour l’Europe`, descente: `descend avec ${cl.nom}, la revanche se prépare` }[res.issue];
   if (fil) publier(fil, 'saison');
   $('#bSaison').onclick = () => { Son.clic(); if (res.offres && res.offres.length) choixOffres(); else hub('vestiaire'); };

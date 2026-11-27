@@ -635,3 +635,24 @@ body.direct .jauge .repere{display:none}
 .ta-txt{font-size:10px}
 .ta-pop{animation:taPop 220ms cubic-bezier(.23,1,.32,1)}
 @keyframes taPop{from{opacity:0}to{opacity:1}}
+/* installations du club */
+.stade-svg{display:block;width:100%;height:auto;margin:6px 0 4px;border:3px solid #000;border-radius:16px;box-shadow:0 4px 0 #000}
+.infra{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:8px 0}
+.infra-ic img{width:34px;height:34px}
+.infra-t{flex:1;min-width:0}
+.infra-t small{display:block;font-size:12px;opacity:.8}
+.infra-niv{display:flex;gap:4px;margin:4px 0}
+.infra-niv i{width:18px;height:6px;border-radius:3px;background:rgba(255,255,255,.2)}
+.infra-niv i.on{background:#ffd23f}
+.infra-eff{color:#cfe9ff;opacity:1!important}
+.tag.or{background:#ffd23f;color:#1c1240}
+.xp{height:4px;border-radius:2px;background:rgba(255,255,255,.15);margin-top:4px;overflow:hidden;max-width:160px}
+.xp i{display:block;height:100%;background:#5ad1ff;transform-origin:left}
+/* trophée soulevé */
+#celeb.trophee .cb-coupe{width:150px;left:75px;top:200px;opacity:0;animation:cbLeve 1.1s cubic-bezier(.23,1,.32,1) .2s forwards}
+#celeb.trophee .cb-bras{width:70px;top:170px;opacity:0;animation:cbPop .35s cubic-bezier(.23,1,.32,1) .9s forwards}
+#celeb.trophee .cb-bras.g{left:30px;transform:rotate(-20deg)}
+#celeb.trophee .cb-bras.d{right:30px;transform:scaleX(-1) rotate(-20deg)}
+@keyframes cbLeve{0%{opacity:0;transform:translateY(60px) scale(.8)}60%{opacity:1;transform:translateY(-150px) scale(1.08)}100%{opacity:1;transform:translateY(-130px) scale(1)}}
+@media (prefers-reduced-motion: reduce){#celeb.trophee .cb-coupe{animation:none;opacity:1;transform:translateY(-130px)}}
+#celeb.trophee .cb-txt{font-size:36px;-webkit-text-stroke:4px #000;white-space:normal;width:330px;text-align:center;line-height:1.05;top:-30px}

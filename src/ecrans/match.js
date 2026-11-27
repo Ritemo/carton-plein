@@ -411,7 +411,7 @@ function ecranFin(tab) {
   const gagne = gp > gc || (cp && cp.qualifie);
   const titre = cp ? (cp.gagne ? `${cp.nom} !` : cp.qualifie ? 'Qualifiés !' : 'Éliminés') : gp > gc ? 'Victoire !' : gp < gc ? 'Défaite' : 'Match nul';
   if (gagne) setTimeout(() => { Son.jingle(); confettis(); }, 500);
-  if (cp && cp.gagne) { setTimeout(confettis, 1300); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
+  if (cp && cp.gagne) { setTimeout(() => souleverTrophee(cp.nom, clubPar(C.club).nom), 900); publier(`a remporté la ${cp.nom} avec ${clubPar(C.club).nom}`, 'trophee'); }
   const cpTxt = cp ? `<div class="cp-res ${cp.gagne ? 'or' : ''}">${img(cp.gagne ? 'trophee' : COUPES[cp.k].ic, 'mini-ic')} ${cp.gagne ? `Vainqueur de la ${cp.nom} ! Prime : ${cp.prime} pièces` : cp.qualifie ? `${cp.nom} : direction la ${cp.suivant.toLowerCase()}` : `${cp.nom} : fin de l'aventure en ${cp.tourJoue.toLowerCase()}`}</div>` : '';
   vue(`<div class="page fin-match">
     <div class="fm-titre lil ${gagne ? 'v' : gp < gc || (cp && !cp.qualifie) ? 'd' : 'n'}">${titre}</div>
@@ -422,7 +422,8 @@ function ecranFin(tab) {
     <div class="journal-une"><div class="une-logo lil">${img('journal', 'mini-ic')} La Une</div><div class="une-t">${bilan.une}</div><div class="une-s">Meilleure action : ${S.stats.meilleurCombo || 'aucune'} à ${S.stats.meilleur}</div>${C.journal[0] && C.journal[0].rival ? `<div class="une-s">${C.journal[0].rival}</div>` : ''}</div>
     ${bilan.defi ? `<div class="cp-res ${bilan.defiOk ? 'or' : ''}">${img('medaille', 'mini-ic')} Défi « ${bilan.defi.txt} » ${bilan.defiOk ? `réussi : +${PRIME_DEFI}` : 'manqué'}</div>` : ''}
     ${(bilan.objFaits || []).map(o => `<div class="cp-res or">${img('trophee', 'mini-ic')} Objectif du président atteint : ${OBJ_SAISON[o.id].txt(o)} (+${OBJ_SAISON[o.id].prime})</div>`).join('')}
-    <div class="gain lil">${img('piece')} +${bilan.gain} pièces</div>
+    ${(bilan.progres || []).map(x => `<div class="cp-res">${img('fusee', 'mini-ic')} <b>${x.nom}</b> ${x.txt}</div>`).join('')}
+    <div class="gain lil">${img('piece')} +${bilan.gain} pièces${bilan.recettes ? ` <small>(dont ${bilan.recettes} de recettes)</small>` : ''}</div>
     ${bilan.recompenses.length ? `<h2 class="lil centre">Choisis ta récompense</h2>
     <div class="recompenses">${bilan.recompenses.map((o, i) => `<button class="recomp" data-i="${i}">${recompHTML(o)}</button>`).join('')}</div>` : `<p class="petit centre">Pas de récompense sans victoire. On se rattrape au prochain match.</p><button class="btn gros" id="bFinOk">Retour au vestiaire</button>`}
   </div>`, 'plein');
@@ -455,12 +456,14 @@ function finDeSaison() {
     descente: [`La descente fait mal. Mais un club, ça se relève. Dédé a déjà relavé les maillots.`, 'baisse', 'Relégation']
   }[res.issue];
   const cps = (res.coupes || []).map(c => `<div class="palm">${img(c.gagne ? 'trophee' : 'medaille2', 'mini-ic')} ${c.nom} : ${c.gagne ? 'vainqueur !' : c.tour.toLowerCase()}</div>`).join('');
+  const retr = (res.retraites || []).map(r => `<div class="palm">${img('poignee', 'mini-ic')} ${r.ancien} prend sa retraite. ${r.nouveau}, formé au club, reprend ses cartes.</div>`).join('');
   const jeunes = res.nouveaux && res.nouveaux.length ? `<div class="palm">${img('poussin', 'mini-ic')} ${res.nouveaux.length} jeune${res.nouveaux.length > 1 ? 's' : ''} au centre de formation : ${res.nouveaux.map(j => `${j.nom} (${'★'.repeat(j.pot)})`).join(', ')}</div>` : '';
   vue(`<div class="scene">${img(txt[1], 'scene-ic grosse')}<div class="fm-titre lil v">${txt[2]}</div>${bulle(res.issue === 'champion' ? 'president' : 'dede', txt[0])}
-    <div class="bilan-saison">${(res.objectifsSaison || []).map(o => `<div class="palm ${o.fait ? 'ok' : ''}">${o.fait ? '✓' : '✕'} ${o.txt}${o.fait ? ` (+${o.prime})` : ''}</div>`).join('')}${cps}${jeunes}</div>
+    <div class="bilan-saison">${(res.objectifsSaison || []).map(o => `<div class="palm ${o.fait ? 'ok' : ''}">${o.fait ? '✓' : '✕'} ${o.txt}${o.fait ? ` (+${o.prime})` : ''}</div>`).join('')}${cps}${jeunes}${retr}</div>
     <div class="gain lil">${img('piece')} +${{ montee: 80, champion: 150, europe: 100, maintien: 40, descente: 30 }[res.issue]} pièces de prime</div>
     <button class="btn gros" id="bSaison">${res.offres && res.offres.length ? `Voir les offres (${res.offres.length})` : `Saison ${C.saison} en ${nomDiv(C.div)}`}</button></div>`, 'plein scene-fond');
   if (['montee', 'champion', 'europe'].includes(res.issue)) { Son.jingle(); confettis(); }
+  if (rang === 1) setTimeout(() => souleverTrophee(`Champion de ${nomDiv(res.avant || C.div)}`, cl.nom), 500);
   const fil = { montee: `monte en ${nomDiv(res.apres)} avec ${cl.nom}`, champion: `est champion ${P.de} avec ${cl.nom} !`, europe: `qualifie ${cl.nom} pour l’Europe`, descente: `descend avec ${cl.nom}, la revanche se prépare` }[res.issue];
   if (fil) publier(fil, 'saison');
   $('#bSaison').onclick = () => { Son.clic(); if (res.offres && res.offres.length) choixOffres(); else hub('vestiaire'); };
