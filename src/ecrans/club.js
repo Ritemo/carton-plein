@@ -320,7 +320,7 @@ function vestiaire() {
   });
   const bm = $('#bMerc'); if (bm) bm.onclick = () => { Son.clic(); SEG_EFF = 'mercato'; hub('effectif'); };
   document.querySelectorAll('.coupe-ligne:not([data-merc])').forEach(b => (b.onclick = () => { Son.clic(); SEG = 'coupes'; hub('competitions'); }));
-  document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { const s = STARS.find(x => x.id === b.dataset.s); modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><div class="btns"><button class="btn" id="mOk">OK</button></div>`, () => ($('#mOk').onclick = fermerModal)); }));
+  document.querySelectorAll('.star-slot[data-s]').forEach(b => (b.onclick = () => { Son.clic(); ficheStar(b.dataset.s); }));
 }
 function objectifsHTML() {
   if (!C.objectifs || !C.objectifs.length) return '';
@@ -442,6 +442,34 @@ function choisirFiche() {
     $('#fNon').onclick = fermerModal;
   });
 }
+// ---------- stars : fiche, libération, remplacement ----------
+const reventeStar = id => Math.round(PRIX_STAR[STARS.find(x => x.id === id).r] / 2);
+function ficheStar(id) {
+  const s = STARS.find(x => x.id === id), rv = reventeStar(id), libre = !COOP;
+  modal(`${img(IC_STAR[s.id], 'grande-ic')}<h1 class="lil">${s.nom}</h1><p class="rar r-${s.r}">${RARETES[s.r].nom}</p><p>${s.txt}</p><p class="petit">Tes stars jouent tous les matchs. Pour en changer, libère celle-ci (revendue à moitié prix) ou achète une nouvelle star en boutique : tu choisiras laquelle elle remplace.</p>
+    <div class="btns"><button class="btn" id="mOk">OK</button>${libre ? `<button class="btn sec" id="mLib">Libérer : +${rv} ${img('piece', 'mini-ic')}</button>` : ''}</div>`, () => {
+    $('#mOk').onclick = fermerModal;
+    on('mLib', () => {
+      const bt = $('#mLib');
+      if (!bt.dataset.sur) { bt.dataset.sur = '1'; bt.innerHTML = `Sûr ? ${s.nom} quitte le club`; return; }
+      C.stars = C.stars.filter(x => x !== id); C.pieces += rv; sauver(); Son.piece(); fermerModal(); toast(`${s.nom} quitte le club (+${rv} pièces)`); hub();
+    });
+  });
+}
+function remplacerStar(st) {
+  const p = PRIX_STAR[st.r];
+  modal(`${img(IC_STAR[st.id], 'grande-ic')}<h1 class="lil">${st.nom}</h1><p class="petit">Tes 5 places sont prises. Qui laisse sa place ? Il est revendu à moitié prix.</p><div class="rgl">${C.stars.map(id => {
+    const s = STARS.find(x => x.id === id), rv = reventeStar(id);
+    return `<button class="choix-rgl" data-remp="${id}">${img(IC_STAR[id], 'mini-ic')}<b>${s.nom}</b><small>${s.txt} · coût final ${p - rv} pièces</small></button>`;
+  }).join('')}</div><div class="btns"><button class="btn sec" id="rAnn">Annuler</button></div>`, () => {
+    document.querySelectorAll('[data-remp]').forEach(b => (b.onclick = () => {
+      const id = b.dataset.remp, rv = reventeStar(id); if (C.pieces + rv < p) return;
+      C.pieces += rv - p; C.stars[C.stars.indexOf(id)] = st.id; C.boutique.achete.star = true;
+      sauver(); Son.piece(); fermerModal(); toast(`${st.nom} remplace ${STARS.find(x => x.id === id).nom}`); hub();
+    }));
+    $('#rAnn').onclick = fermerModal;
+  });
+}
 function boutique() {
   const b = C.boutique, st = b.star ? STARS.find(x => x.id === b.star) : null, fi = comboPar(b.fiche);
   const nf = C.niveaux[b.fiche] || 1;
@@ -449,16 +477,16 @@ function boutique() {
   vue(`<div class="page">
     ${bulle('dede', 'Le stock change après chaque match. Les pièces se gagnent en jouant : victoire, buts, fin de saison.')}
     <div class="offres">
-      ${st ? offre('star', IC_STAR[st.id], st.nom, `<span class="rar r-${st.r}">${RARETES[st.r].nom}</span> ${st.txt}`, PRIX_STAR[st.r], b.achete.star, C.stars.length >= MAX_STARS) : ''}
+      ${st ? offre('star', IC_STAR[st.id], st.nom, `<span class="rar r-${st.r}">${RARETES[st.r].nom}</span> ${st.txt}`, PRIX_STAR[st.r], b.achete.star, false) : ''}
       ${offre('fiche', 'tactique', 'Fiche tactique au choix', 'La combinaison de ton choix gagne +0,5 au multiplicateur et +5 points. Dès 60 pièces', 60, b.achete.fiche)}
       ${offre('carte', ICT[b.carte.t], `${TYPES[b.carte.t].nom} ${RARETES[b.carte.r].nom.toLowerCase()}`, `Une nouvelle carte pour ton paquet`, b.carte.prix, b.achete.carte)}
     </div>
-    ${C.stars.length >= MAX_STARS ? '<p class="astuce">Tes 5 places de stars sont prises.</p>' : ''}
+    ${C.stars.length >= MAX_STARS ? '<p class="astuce">Tes 5 places de stars sont prises : en achetant une nouvelle star, tu choisis laquelle elle remplace (l’ancienne est revendue à moitié prix).</p>' : ''}
     <p class="astuce">Pour entraîner ou retirer une carte, touche-la dans l'onglet Effectif.</p>
   </div>`);
   document.querySelectorAll('.offre [data-k]').forEach(bt => (bt.onclick = () => {
     const k = bt.dataset.k;
-    if (k === 'star') { const p = PRIX_STAR[st.r]; if (C.pieces < p) return; C.pieces -= p; C.stars.push(st.id); toast(`${st.nom} rejoint le club !`); }
+    if (k === 'star') { const p = PRIX_STAR[st.r]; if (C.pieces < p) return; if (C.stars.length >= MAX_STARS) return remplacerStar(st); C.pieces -= p; C.stars.push(st.id); toast(`${st.nom} rejoint le club !`); }
     if (k === 'fiche') return choisirFiche();
     if (k === 'carte') { if (C.pieces < b.carte.prix) return; C.pieces -= b.carte.prix; C.cartes.push(nouvelleCarte(b.carte.t, jiPourType(b.carte.t), b.carte.r)); toast('Nouvelle carte !'); }
     b.achete[k] = true; Son.piece(); maj();

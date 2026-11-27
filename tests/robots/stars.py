@@ -1,0 +1,16 @@
+from playwright.sync_api import sync_playwright
+import pathlib; F=pathlib.Path(__file__).resolve().parents[2].joinpath('docs','index.html').as_uri()
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':375,'height':740},device_scale_factor=2)
+    errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
+    pg.goto(F); pg.wait_for_timeout(600); pg.evaluate("()=>{localStorage.setItem('carton-plein-tuto','1');localStorage.setItem('carton-plein-profil',JSON.stringify({code:'ROBOTSTR',pseudo:'',niveauChoisi:true}));localStorage.setItem('carton-plein-cloud','')}"); pg.click('#bNew'); pg.wait_for_timeout(300); pg.click('.pays-choix[data-p="fr"]'); pg.wait_for_timeout(300); pg.click('.club-choix[data-id="caen"]'); pg.wait_for_timeout(300)
+    for i in range(4): pg.click('#bSc'); pg.wait_for_timeout(120)
+    pg.evaluate("()=>{const L=STARS.map(s=>s.id); C.stars=L.slice(0,5); C.pieces=500; C.boutique.star=L[7]; C.boutique.achete.star=false; hub('vestiaire');}"); pg.wait_for_timeout(300)
+    pg.click('.star-slot[data-s]'); pg.wait_for_timeout(300); pg.screenshot(path='/tmp/st_fiche.png')
+    pg.click('#mLib'); pg.click('#mLib'); pg.wait_for_timeout(300)
+    print('après libération', pg.evaluate("JSON.stringify([C.stars.length,C.pieces])"))
+    pg.evaluate("()=>{C.stars.push(STARS[5].id); hub('boutique')}"); pg.wait_for_timeout(300)
+    pg.click('[data-k="star"]'); pg.wait_for_timeout(300); pg.screenshot(path='/tmp/st_remp.png')
+    pg.click('[data-remp]'); pg.wait_for_timeout(300)
+    print('après remplacement', pg.evaluate("JSON.stringify([C.stars,C.pieces,C.boutique.star])"))
+    print(errs); b.close()
